@@ -1,0 +1,20 @@
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import Layout from './components/Layout/Layout';
+import Home from './pages/Home';
+
+function App() {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<Layout />}>
+          <Route index element={<Home />} />
+          <Route path="recommend" element={<div className="p-8">추천 페이지 (구현 예정)</div>} />
+          <Route path="search" element={<div className="p-8">검색 페이지 (구현 예정)</div>} />
+          <Route path="profile" element={<div className="p-8">프로필 페이지 (구현 예정)</div>} />
+        </Route>
+      </Routes>
+    </Router>
+  );
+}
+
+export default App;
