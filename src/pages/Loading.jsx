@@ -30,6 +30,7 @@ const Loading = ({ onComplete }) =>{
                                 key={index} 
                                 className={`inline-block opacity-0 ${char === ' ' ? 'w-2' : ''} ${char === '돌' ? 'animate-char-wave-dol' : char === '맹' ? 'animate-char-wave-maeng' : 'animate-char-wave'}`}
                                 style={{ "--delay": `${1.8 + index * 0.075}s`}}
+
                             >
                                 {char === ' ' ? '\u00A0' : char}
                             </span>
@@ -37,6 +38,7 @@ const Loading = ({ onComplete }) =>{
                         ))}
                     </div>
                     <p className="text-xl font-medium animate-sentence-up opacity-0">우리 동네 장소 보석함</p>
+
                 </div>
             </div>
       </div>
