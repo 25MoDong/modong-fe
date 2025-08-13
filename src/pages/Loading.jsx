@@ -3,7 +3,7 @@ import { useEffect } from "react";
 const Loading = ({ onComplete }) =>{
 
     useEffect(()=> {
-        const animationDuration = 3800;
+        const animationDuration = 6000;
         const timer = setTimeout(() => {
             onComplete();
         }, animationDuration);
@@ -24,19 +24,21 @@ const Loading = ({ onComplete }) =>{
 
                 {/* 텍스트 */}
                 <div className="flex flex-col items-center justify-center whitespace-nowrap">
-                    <div className="text-xl mb-2">
+                    <div className="text-xl font-medium mb-2">
                         {"돌아다니면서 맹글어보는".split("").map((char, index) => (
                             <span 
                                 key={index} 
-                                className={`inline-block opacity-0 animate-char-wave ${char === ' ' ? 'w-2' : ''}`}
-                                style={{ "--delay": `${1.8 + index * 0.05}s`}}
+                                className={`inline-block opacity-0 ${char === ' ' ? 'w-2' : ''} ${char === '돌' ? 'animate-char-wave-dol' : char === '맹' ? 'animate-char-wave-maeng' : 'animate-char-wave'}`}
+                                style={{ "--delay": `${1.8 + index * 0.075}s`}}
+
                             >
                                 {char === ' ' ? '\u00A0' : char}
                             </span>
 
                         ))}
                     </div>
-                    <p className="text-xl animate-sentence-up opacity-0">우리 동네 장소 보석함</p>
+                    <p className="text-xl font-medium animate-sentence-up opacity-0">우리 동네 장소 보석함</p>
+
                 </div>
             </div>
       </div>

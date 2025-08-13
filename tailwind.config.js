@@ -21,7 +21,11 @@ export default {
           "circleShrink 1s cubic-bezier(0.3, 0.2, 1, 0.55) forwards",
         "stone-bounce": "stoneBounce 0.8s ease-out 1s forwards",
         "char-wave": "charWave 0.15s ease-out var(--delay) forwards",
-        "sentence-up": "sentenceUp 0.65s ease-out 2.5s forwards",
+        "char-wave-dol":
+          "charWave 0.15s ease-out var(--delay) forwards, dolHighlight 0.5s ease-out 3.85s forwards",
+        "char-wave-maeng":
+          "charWave 0.15s ease-out var(--delay) forwards, maengHighlight 0.5s ease-out 4.35s forwards",
+        "sentence-up": "sentenceUp 0.65s ease-out 3.2s forwards",
       },
       keyframes: {
         circleShrink: {
@@ -40,6 +44,16 @@ export default {
         sentenceUp: {
           "0%": { transform: "translateY(30px)", opacity: "1" },
           "100%": { transform: "translateY(0px)", opacity: "1" },
+        },
+        dolHighlight: {
+          "0%": { transform: "scale(1)", color: "#869EFF" },
+          "50%": { transform: "scale(1.1)", color: "#5C7CFF" },
+          "100%": { transform: "scale(1)", color: "#5C7CFF" },
+        },
+        maengHighlight: {
+          "0%": { transform: "scale(1)", color: "#869EFF" },
+          "50%": { transform: "scale(1.1)", color: "#5C7CFF" },
+          "100%": { transform: "scale(1)", color: "#5C7CFF" },
         },
       },
       screens: {
