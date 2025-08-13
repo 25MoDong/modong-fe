@@ -5,6 +5,16 @@ import tailwindScrollbarHide from "tailwind-scrollbar-hide";
 export default {
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
+    fontFamily: {
+      sans: [
+        "Pretendard Variable",
+        "Pretendard",
+        "-apple-system",
+        "BlinkMacSystemFont",
+        "system-ui",
+        "sans-serif",
+      ],
+    },
     extend: {
       animation: {
         "circle-shrink":
@@ -38,9 +48,12 @@ export default {
       colors: {
         primary: {
           50: "#eff6ff",
-          500: "#3b82f6",
+          500: "#3C4462",
           600: "#2563eb",
           700: "#1d4ed8",
+        },
+        secondary: {
+          500: "#F0E8D5",
         },
       },
     },
