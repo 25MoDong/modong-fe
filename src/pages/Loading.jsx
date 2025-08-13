@@ -12,11 +12,9 @@ const Loading = ({ onComplete }) =>{
     }, [onComplete])
 
     return (
-        <div className="relative w-full h-full bg-white">
+        <div className="relative w-full h-screen bg-white">
             {/* 해당 animation 위치: tailwind.config.js */}
-            <div 
-            className="absolute inset-0 bg-gray-500 animate-circle-shrink"
-            />
+            <div className="absolute inset-0 bg-gray-500 animate-circle-shrink"/>
              {/* 중앙 컨테이너 - 아이콘과 텍스트 */}
             <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
                 {/* 아이콘/돌맹이 */}
