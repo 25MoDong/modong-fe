@@ -1,4 +1,6 @@
+
 @import "pretendard/dist/web/variable/pretendardvariable.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -28,4 +30,15 @@ h6 {
 
 .card {
   @apply bg-white rounded-xl shadow-sm border border-gray-100 p-6;
+}
+
+/* 가로 스크롤바 숨김 */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+@layer utilities {
+  .title-18 { @apply text-[18px] leading-[22px] font-semibold; }
+  .cap-11   { @apply text-[11px] leading-[14px] text-gray-500; }
+  .body-12  { @apply text-[12px] leading-[16px]; }
+  .body-13  { @apply text-[13px] leading-[18px]; }
 }
