@@ -1,4 +1,4 @@
-import { Polygon } from "react-kakao-maps-sdk";
+// import { Polygon } from "react-kakao-maps-sdk";
 import tailwindScrollbarHide from "tailwind-scrollbar-hide";
 
 /** @type {import('tailwindcss').Config} */
@@ -69,6 +69,19 @@ export default {
         secondary: {
           500: "#F0E8D5",
         },
+        brand: {
+          navy:   "#3C4462", // 스탬프 카드 네이비
+          cream:  "#FFFAED", // 크림 배경
+          accent: "#C3A56C", // 포인트 골드
+        },
+      },
+      borderRadius: {
+        card: "16px",   // rounded-card
+        stamp: "14px",  // rounded-stamp
+      },
+      boxShadow: {
+        soft:  "0 4px 12px rgba(0,0,0,0.06)",                // shadow-soft
+        stamp: "0 10px 24px rgba(35,44,72,0.20)",            // shadow-stamp
       },
     },
   },
