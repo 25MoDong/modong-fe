@@ -1,4 +1,3 @@
-'use client';
 import { Home, Heart, MapPin, Users, User } from 'lucide-react';
 
 export default function BottomTab({ active = 'home' }) {
@@ -12,8 +11,8 @@ export default function BottomTab({ active = 'home' }) {
   );
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-50 mx-auto max-w-md">
-      <div className="mx-4 mb-4 rounded-2xl bg-white/90 backdrop-blur shadow-[0_6px_24px_rgba(0,0,0,0.08)]">
+    <nav className="absolute bottom-4 left-[20px] right-[20px] z-50">
+      <div className="rounded-2xl bg-white/90 backdrop-blur shadow-[0_6px_24px_rgba(0,0,0,0.08)]">
         <ul className="grid grid-cols-5 p-3">
           <li className="flex justify-center">
             <Item icon={<Home size={22} />} keyName="home" label="홈" />

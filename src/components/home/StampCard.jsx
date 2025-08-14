@@ -1,29 +1,31 @@
+import { motion } from 'framer-motion';
+
 export default function StampCard({ count = 0, onWrite }) {
   return (
-    <div className="relative px-5 mt-4">
-      {/* 마스코트 반원 */}
-      <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-14 h-7 bg-[#E9E7E2] rounded-t-full flex items-end justify-center">
-        <div className="w-7 h-7 bg-[#E9E7E2] rounded-full flex items-center justify-center shadow-[0_2px_0_0_rgba(0,0,0,0.06)]">
-          <div className="w-1.5 h-1.5 bg-black rounded-full mr-1.5" />
-          <div className="w-1.5 h-1.5 bg-black rounded-full" />
-        </div>
-      </div>
+    <div className="relative mt-5">
+      <img 
+          src="images/profile.png"
+          alt="돌맹이 캐릭터"
+          className="absolute top-0 right-0 w-12 h-8 transform -translate-x-1 -translate-y-5 z-0"
+      />
 
       {/* 본 카드 */}
-      <div className="rounded-[14px] bg-[#1F2746] text-white px-5 py-4 shadow-md">
-        <div className="text-[12px] opacity-80">이번 달 모은 들멩이 스탬프</div>
-        <div className="mt-1 text-[40px] leading-none font-extrabold tracking-tight">
-          {String(count).padStart(2, '0')}개
-        </div>
-        <div className="mt-2 flex justify-end">
-          <button
-            onClick={onWrite}
-            className="text-[11px] opacity-90 hover:opacity-100"
-          >
+      <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25 }}
+          className="bg-brand-navy text-white rounded-stamp px-[16px] pt-[18px] pb-[16px] shadow-stamp z-10"
+        >
+        <p className="text-xs opacity-80">이번 달 모은 들멩이 스탬프</p>
+        <div className="mt-[6px] flex items-end justify-between">
+          <p className="text-[36px] leading-[36px] font-extrabold tracking-[-0.3px]">
+            00개
+          </p>
+          <button className="text-[12px] leading-[16px] underline underline-offset-2 opacity-90">
             후기 쓰러가기 &gt;
           </button>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }

@@ -16,7 +16,7 @@ const Layout = () => {
 
       {/* flex-shiring-0 : flexbox에서 웹앱 영역 너비를 고정으로 유지해 줌. */}
       <div className="min-w-[375px] max-w-[400px] lg:w-[390px] lg:flex-shrink-0 mx-auto lg:mx-20">
-        <div className="bg-white w-full h-screen overflow-y-auto scrollbar-hide  lg:shadow-2xl">
+        <div className="bg-white w-full h-screen overflow-y-auto scrollbar-hide lg:shadow-2xl relative">
           <Outlet />
         </div>
       </div>
