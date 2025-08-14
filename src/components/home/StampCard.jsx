@@ -12,9 +12,16 @@ export default function StampCard({ count = 0, onWrite }) {
       {/* 본 카드 */}
       <div className="rounded-[14px] bg-[#1F2746] text-white px-5 py-4 shadow-md">
         <div className="text-[12px] opacity-80">이번 달 모은 들멩이 스탬프</div>
-        <div className="mt-1 text-[40px] leading-none font-extrabold tracking-tight">{String(count).padStart(2,'0')}개</div>
+        <div className="mt-1 text-[40px] leading-none font-extrabold tracking-tight">
+          {String(count).padStart(2, '0')}개
+        </div>
         <div className="mt-2 flex justify-end">
-          <button onClick={onWrite} className="text-[11px] opacity-90 hover:opacity-100">후기 쓰러가기 &gt;</button>
+          <button
+            onClick={onWrite}
+            className="text-[11px] opacity-90 hover:opacity-100"
+          >
+            후기 쓰러가기 &gt;
+          </button>
         </div>
       </div>
     </div>
