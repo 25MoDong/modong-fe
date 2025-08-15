@@ -20,7 +20,7 @@ export default function SearchBar({
   const currentVariant = variants[variant] || variants.light;
   
   return (
-    <div className={`mt-[12px] relative ${className}`}>
+    <div className={`mt-[12px] relative w-full ${className}`}>
       {/* dark variant일 때만 캐릭터 이미지 표시 */}
       {variant === 'dark' && (
         <img 
