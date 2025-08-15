@@ -1,17 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import OnboardingFlow from '../components/Onboarding/OnboardingFlow';
 import LocationBar from '../components/home/LocationBar';
 import SearchBar from '../components/common/SearchBar';
 import StampCard from '../components/home/StampCard';
 import SectionTitle from '../components/home/SectionTitle';
 import PlaceCards from '../components/common/PlaceCards';
-import BottomTab from '../components/common/BottomTab';
 import TagPills from '../components/common/TagPills';
 
 const Home = () => {
-  const [isFirstVisit, setIsFirstVisit] = useState(() => {
-      return !localStorage.getItem('onboarding_completed');
+  const [needsOnboarding, setNeedsOnboarding] = useState(() => {
+    return !localStorage.getItem('onboarding_completed');
   });
+
 
   // 데이터 정의
   const favoriteData = [
@@ -27,30 +27,25 @@ const Home = () => {
     { title: '브루클린카페', category: '카페', tags: ['분위기'] }
   ];
 
-  useEffect(() => {
-    const hasCompletedOnboarding = localStorage.getItem('onboarding_completed');
-    if (hasCompletedOnboarding) {
-      setIsFirstVisit(false);
-    }
-  }, []);
-
   const handleOnboardingComplete = userData => {
     localStorage.setItem('onboarding_completed', 'true');
     localStorage.setItem('user_data', JSON.stringify(userData));
-    setIsFirstVisit(false);
+    setNeedsOnboarding(false);
+
+    window.dispatchEvent(new CustomEvent('OnboardingCompleted'));
   };
 
-  if (isFirstVisit) {
-    return <OnboardingFlow onComplete={handleOnboardingComplete} />;
+  if(needsOnboarding){
+    return <OnboardingFlow onComplete={handleOnboardingComplete} />
   }
+
   return (
     <div className="bg-white min-h-screen">
-      {/* 화면 좌우 여백: 20px */}
-      <div className="px-[20px] pt-[16px] pb-[24px]">
+      <div className="px-5 pt-4 pb-6">
         <LocationBar hasContainer={false} />
 
         {/* variant -> dark, light 지정 시 검색창 테마 변경 */}
-        <SearchBar variant='dark'/>
+        <SearchBar variant=''/>
 
         {/* 스탬프 카드 */}
         <StampCard />
@@ -82,12 +77,9 @@ const Home = () => {
           layout="grid"
           className="mt-[12px]"
         />
-
-        {/* 탭바 여백 */}
-        <BottomTab />
+        
       </div>
     </div>
-  );
-};
+)};
 
 export default Home;

@@ -4,14 +4,11 @@ import TestUserSelect from './TestUserSelect';
 import UserReWriting from './UserReWriting';
 
 const OnboardingFlow = ({ onComplete }) => {
-  const [step, setStep] = useState('loading');
+  const [step, setStep] = useState('testuser');
   const [selectedUser, setSelectedUser] = useState(null);
 
   const handleStepComplete = (step, user) => {
     switch (step) {
-      case 'loading':
-        setStep('testuser');
-        break;
       case 'testuser':
         setSelectedUser(user);
         setStep('rewriting');
@@ -24,9 +21,6 @@ const OnboardingFlow = ({ onComplete }) => {
 
   return (
     <>
-      {step === 'loading' && (
-        <Loading onComplete={() => handleStepComplete('loading')} />
-      )}
       {step === 'testuser' && (
         <TestUserSelect
           onComplete={user => handleStepComplete('testuser', user)}
