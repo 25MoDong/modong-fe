@@ -14,6 +14,10 @@ export default function App() {
         />
         <Route path="map" element={<MapPage />} />
         <Route
+          path="community"
+          element={<div className="p-8">커뮤니티 페이지 (구현 예정)</div>}
+        />
+        <Route
           path="profile"
           element={<div className="p-8">프로필 페이지 (구현 예정)</div>}
         />

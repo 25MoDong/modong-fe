@@ -1,38 +1,74 @@
 import { Home, Heart, MapPin, Users, User } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
 
-export default function BottomTab({ active = 'home' }) {
-  const Item = ({ icon, keyName, label }) => (
+export default function BottomTab() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // App.jsx의 라우터 정의와 일치하는 네비게이션 설정
+  const navItems = [
+    { 
+      key: 'home', 
+      label: '홈', 
+      icon: <Home size={22} />, 
+      path: '/' 
+    },
+    { 
+      key: 'recommend', 
+      label: '찜', 
+      icon: <Heart size={22} />, 
+      path: '/recommend' 
+    },
+    { 
+      key: 'map', 
+      label: '지도', 
+      icon: <MapPin size={22} />, 
+      path: '/map' 
+    },
+    { 
+      key: 'community', 
+      label: '커뮤니티', 
+      icon: <img src="icon/community.svg" alt="커뮤니티" width={22} height={22} />, 
+      path: '/community' 
+    },
+    { 
+      key: 'profile', 
+      label: '내 정보', 
+      icon: <img src="icon/myPage.svg" alt="커뮤니티" width={22} height={22} />, 
+      path: '/profile' 
+    }
+  ];
+
+  // 현재 경로 기반으로 active 상태 결정
+  const isActive = (path) => {
+    if (path === '/') return location.pathname === '/';
+    return location.pathname.startsWith(path);
+  };
+
+  const Item = ({ item }) => (
     <button
-      aria-label={label}
-      className={`flex items-center justify-center ${active === keyName ? 'text-gray-900' : 'text-gray-500'}`}
+      aria-label={item.label}
+      onClick={() => navigate(item.path)}
+      className={`flex flex-col items-center justify-center p-2 transition-colors ${
+        isActive(item.path) 
+          ? 'text-gray-900' 
+          : 'text-gray-500 hover:text-gray-700'
+      }`}
     >
-      {icon}
+      {item.icon}
+      <span className="text-[10px] mt-1">{item.label}</span>
     </button>
   );
 
   return (
-    <nav className="absolute bottom-4 left-[20px] right-[20px] z-50">
+    <nav className="px-5 z-50">
       <div className="rounded-2xl bg-white/90 backdrop-blur shadow-[0_6px_24px_rgba(0,0,0,0.08)]">
-        <ul className="grid grid-cols-5 p-3">
-          <li className="flex justify-center">
-            <Item icon={<Home size={22} />} keyName="home" label="홈" />
-          </li>
-          <li className="flex justify-center">
-            <Item icon={<Heart size={22} />} keyName="fav" label="찜" />
-          </li>
-          <li className="flex justify-center">
-            <Item icon={<MapPin size={22} />} keyName="map" label="지도" />
-          </li>
-          <li className="flex justify-center">
-            <Item
-              icon={<Users size={22} />}
-              keyName="community"
-              label="커뮤니티"
-            />
-          </li>
-          <li className="flex justify-center">
-            <Item icon={<User size={22} />} keyName="me" label="내 정보" />
-          </li>
+        <ul className="grid grid-cols-5 p-2">
+          {navItems.map((item) => (
+            <li key={item.key} className="flex justify-center">
+              <Item item={item} />
+            </li>
+          ))}
         </ul>
       </div>
     </nav>
