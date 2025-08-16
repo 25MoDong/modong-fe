@@ -23,10 +23,8 @@ const MapPage = () => {
           level={4}
           />
           <div className='absolute top-12 left-5 right-5 z-10'>
-            <SearchBar variant='dark'/>
+            <SearchBar variant='dark' clickable={true}/>
           </div>
-
-
       </div>
     </div>
   );

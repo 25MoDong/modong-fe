@@ -23,12 +23,11 @@ const Loading = ({ onComplete }) => {
             alt="돌맹이미지"
             className='w-[89px] h-[75px]'
           />
-          <div className="absolute top-[20px] left-[25px] w-[6px] h-[6px] bg-primary-500 rounded-full animate-blink"></div>
-          <div className="absolute top-[20px] left-[35px] w-[6px] h-[6px] bg-primary-500 rounded-full animate-blink"></div>
         </div>
 
         {/* 텍스트 */}
         <div className="flex flex-col items-center justify-center whitespace-nowrap">
+          <p className='text-3xl font-bold mb-2'>돌맹돌맹</p>
           <div className="text-xl font-medium mb-2">
             {'돌아다니면서 맹글어보는'.split('').map((char, index) => (
               <span

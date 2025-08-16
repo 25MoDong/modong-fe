@@ -26,7 +26,6 @@ export default {
         'char-wave-maeng':
           'charWave 0.15s ease-out var(--delay) forwards, maengHighlight 0.5s ease-out 4.35s forwards',
         'sentence-up': 'sentenceUp 0.65s ease-out 3.2s forwards',
-        blinkd: 'blink 3s infinite ease-in-out',
       },
       keyframes: {
         circleShrink: {
@@ -55,10 +54,6 @@ export default {
           '0%': { transform: 'scale(1)', color: '#869EFF' },
           '50%': { transform: 'scale(1.1)', color: '#5C7CFF' },
           '100%': { transform: 'scale(1)', color: '#5C7CFF' },
-        },
-        blink: {
-          '0%, 90%, 100%': { opacity: '0' },
-          '95%': { opacity: '1' },
         },
       },
       screens: {

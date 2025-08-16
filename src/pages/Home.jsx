@@ -45,7 +45,7 @@ const Home = () => {
         <LocationBar hasContainer={false} />
 
         {/* variant -> dark, light 지정 시 검색창 테마 변경 */}
-        <SearchBar variant=''/>
+        <SearchBar variant='' clickable={true} />
 
         {/* 스탬프 카드 */}
         <StampCard />

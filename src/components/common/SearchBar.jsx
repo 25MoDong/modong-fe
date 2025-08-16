@@ -1,11 +1,15 @@
 import { FiSearch } from "react-icons/fi";
+import { useNavigate } from "react-router-dom";
 
 export default function SearchBar({
   placeholder = '최애 장소나 메뉴를 입력해 주세요.',
   onEnter,
   className='',
   variant='light',
+  clickable=false,
 }) {
+  const navigate = useNavigate();
+  
   const variants = {
     light:{
       input: "bg-[#F5F5F5] text-black placeholder:text-gray-400",
@@ -16,7 +20,7 @@ export default function SearchBar({
       icon: 'text-secondary-500'
     },
   };
-
+  
   const currentVariant = variants[variant] || variants.light;
   
   return (
@@ -35,14 +39,26 @@ export default function SearchBar({
           className={`absolute right-[12px] top-1/2 -translate-y-1/2 z-20 stroke-[#939393] ${currentVariant.icon}`}
           size={18}
         />
-        <input
-          type='text'
-          className={`w-full h-[44px] pl-[16px] pr-[40px] text-[14px] z-10 ${currentVariant.input} rounded-xl`}
-          placeholder={placeholder}
-          onKeyDown={e => {
-            if (e.key === 'Enter' && onEnter) onEnter(e.target.value);
-          }}
-        />
+        
+        {clickable ? (
+          <button
+            onClick={() => navigate('/search', {state: {variant}})}
+            type="button"
+            className={`w-full h-[44px] pl-[16px] pr-[40px] text-[14px] z-10 ${currentVariant.input} rounded-xl text-left`}
+          >
+            <span>{placeholder}</span>
+          </button>
+        ) : (
+          <input
+            type="text"
+            autoFocus
+            className={`w-full h-[44px] pl-[16px] pr-[40px] text-[14px] z-10 ${currentVariant.input} rounded-xl`}
+            placeholder={placeholder}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && onEnter) onEnter(e.target.value);
+            }}
+          />
+        )}
       </div>
     </div>
   );
