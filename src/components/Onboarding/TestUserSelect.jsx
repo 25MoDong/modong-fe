@@ -66,9 +66,9 @@ const TestUserSelect = ({ onComplete }) => {
               className="relative bg-white rounded-2xl p-6 cursor-pointer shadow-gray-500 shadow-md duration-200 ease-out transition-all active:scale-95 active:ring-4 active:ring-primary-500 w-64 h-80"
             >
               {/* 프로필 이미지 */}
-              <div className="bg-gray-300 rounded-full mx-auto mb-4 flex items-center justify-center">
+              <div className="rounded-full mx-auto mb-4 flex items-center justify-center">
                 <img
-                  src="images/profile.png"
+                  src="images/dolmaeng.png"
                   alt="돌맹 프로필 이미지"
                   className="w-32 h-auto object-contain object-center"
                   style={{
