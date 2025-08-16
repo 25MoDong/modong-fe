@@ -1,7 +1,8 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout/Layout';
 import Home from './pages/Home';
-import MapPage from './pages/Map';
+import Map from './pages/Map';
+import Search from './pages/Search';
 
 export default function App() {
   return (
@@ -12,7 +13,7 @@ export default function App() {
           path="recommend"
           element={<div className="p-8">찜 페이지 (구현 예정)</div>}
         />
-        <Route path="map" element={<MapPage />} />
+        <Route path="map" element={<Map />} />
         <Route
           path="community"
           element={<div className="p-8">커뮤니티 페이지 (구현 예정)</div>}
@@ -21,6 +22,11 @@ export default function App() {
           path="profile"
           element={<div className="p-8">프로필 페이지 (구현 예정)</div>}
         />
+        <Route
+          path="search"
+          element={<Search/>}
+        />
+
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
