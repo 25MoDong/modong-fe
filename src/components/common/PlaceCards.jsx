@@ -16,8 +16,8 @@ export default function PlaceCards({
     }
   };
   const layoutStyles = {
-    grid: "grid grid-cols-3 gap-[12px]",
-    scroll: "flex gap-[12px] overflow-x-auto scrollbar-hide pb-2 min-w-0"
+    grid: "grid grid-cols-3 gap-[12px] bg-secondary-300 py-4 px-3",
+    scroll: "flex gap-[12px] overflow-x-auto scrollbar-hide pb-2 pl-5 -mx-5 min-w-0"
   };
 
   const currentLayout = layoutStyles[layout] || layoutStyles.grid;

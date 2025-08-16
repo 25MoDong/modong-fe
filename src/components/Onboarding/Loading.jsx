@@ -17,7 +17,15 @@ const Loading = ({ onComplete }) => {
       {/* 중앙 컨테이너 - 아이콘과 텍스트 */}
       <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
         {/* 아이콘/돌맹이 */}
-        <div className="w-24 h-24 bg-gray-400 rounded-lg animate-stone-bounce opacity-0 transform rotate-45 mb-8" />
+        <div className="relative">
+          <img 
+            src="images/dolmaeng.png" 
+            alt="돌맹이미지"
+            className='w-[89px] h-[75px]'
+          />
+          <div className="absolute top-[20px] left-[25px] w-[6px] h-[6px] bg-primary-500 rounded-full animate-blink"></div>
+          <div className="absolute top-[20px] left-[35px] w-[6px] h-[6px] bg-primary-500 rounded-full animate-blink"></div>
+        </div>
 
         {/* 텍스트 */}
         <div className="flex flex-col items-center justify-center whitespace-nowrap">
