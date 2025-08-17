@@ -14,10 +14,10 @@ export default function BottomTab() {
       path: '/' 
     },
     { 
-      key: 'recommend', 
+      key: 'favorites', 
       label: '찜', 
       icon: <Heart size={22} />, 
-      path: '/recommend' 
+      path: '/favorites' 
     },
     { 
       key: 'map', 

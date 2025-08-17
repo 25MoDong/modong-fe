@@ -3,6 +3,7 @@ import Layout from './components/Layout/Layout';
 import Home from './pages/Home';
 import Map from './pages/Map';
 import Search from './pages/Search';
+import Favorites from './pages/Favorites';
 
 export default function App() {
   return (
@@ -10,8 +11,8 @@ export default function App() {
       <Route path="/" element={<Layout />}>
         <Route index element={<Home />} />
         <Route
-          path="recommend"
-          element={<div className="p-8">찜 페이지 (구현 예정)</div>}
+          path="favorites"
+          element={<Favorites />}
         />
         <Route path="map" element={<Map />} />
         <Route
