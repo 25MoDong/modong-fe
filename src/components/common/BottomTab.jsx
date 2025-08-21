@@ -5,7 +5,7 @@ import { memo, useCallback } from 'react';
 import communityIcon from '/icon/community.svg';
 import myPageIcon from '/icon/myPage.svg';
 
-export default function BottomTab() {
+function BottomTab() {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -84,6 +84,6 @@ export default function BottomTab() {
       </div>
     </nav>
   );
-});
+}
 
-export default BottomTab;
+export default memo(BottomTab);
