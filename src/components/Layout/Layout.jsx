@@ -1,31 +1,44 @@
 import { Outlet } from 'react-router-dom';
 import BottomTab from '../common/BottomTab';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import OnboardingFlow from '../Onboarding/OnboardingFlow';
 import AppInitializer from '../AppInitializer';
+import { SearchModeProvider, useSearchModeContext } from '../../contexts/SearchModeContext';
 
-const Layout = () => {
-  const [showBottomTab, setShowBottomTab] = useState(false);
+/**
+ * Inner Layout component that has access to SearchModeContext
+ */
+const LayoutContent = () => {
+  const [showBottomTab, setShowBottomTab] = useState(() => {
+    // Initialize from localStorage to prevent layout shift
+    return !!localStorage.getItem('onboarding_completed');
+  });
 
-  useEffect(()=>{
-    const updateBottomTab = () => {
-      const completed = localStorage.getItem('onboarding_completed');
-      setShowBottomTab(!!completed); 
-    };
+  const { config: searchConfig } = useSearchModeContext();
 
+  const updateBottomTab = useCallback(() => {
+    const completed = localStorage.getItem('onboarding_completed');
+    setShowBottomTab(!!completed); 
+  }, []);
+
+  // Determine if navigation should be visible
+  // Hide navigation when search is active (Kakao Map UX pattern)
+  const shouldShowNavigation = showBottomTab && searchConfig.showNavigation;
+
+  useEffect(() => {
     updateBottomTab();
     window.addEventListener('storage', updateBottomTab);
     window.addEventListener('OnboardingCompleted', updateBottomTab);
     
-    return ()=>{
-      window.removeEventListener('storage',updateBottomTab);
+    return () => {
+      window.removeEventListener('storage', updateBottomTab);
       window.removeEventListener('OnboardingCompleted', updateBottomTab);
     };
-  },[]);
+  }, [updateBottomTab]);
 
   return (
-    
-    <div className="h-screen items-center justify-center flex select-none">
+    <div className="min-h-screen items-center justify-center flex select-none bg-gray-50 lg:bg-gray-100">
+        {/* Desktop background image */}
         <div className="hidden h-full lg:block lg:flex-1 lg:justify-end bg-gray-100">
           <img
             src="/images/tmp.jpg"
@@ -37,22 +50,43 @@ const Layout = () => {
             />
         </div>
 
-        {/* flex-shiring-0 : flexbox에서 웹앱 영역 너비를 고정으로 유지해 줌. */}
-        <div className="min-w-[375px] max-w-[400px] lg:w-[390px] lg:flex-shrink-0 mx-auto lg:mx-20">
-          <div className='bg-white w-full flex flex-col h-screen lg:shadow-2xl'>
+        {/* Mobile-first responsive container */}
+        <div className="w-full max-w-sm sm:max-w-md lg:w-[390px] lg:max-w-[400px] lg:flex-shrink-0 mx-auto lg:mx-20">
+          <div className='bg-white w-full h-screen lg:shadow-2xl lg:rounded-lg overflow-hidden flex flex-col'>
             <AppInitializer>
-            <main className="flex-1  overflow-y-auto scrollbar-hide relative">
+              {/* Main content area - scrollable */}
+              <main className="flex-1 overflow-hidden">
                 <Outlet />
-            </main>
-            { showBottomTab && (
-              <footer className='flex-shirink-0'>
-                <BottomTab />
-              </footer>
-            )}
+              </main>
+              
+              {/* Bottom navigation - conditionally visible based on search mode */}
+              {shouldShowNavigation && (
+                <div 
+                  className={`flex-shrink-0 pb-safe-bottom transition-all duration-300 ease-in-out ${
+                    searchConfig.isSearchActive 
+                      ? 'opacity-0 transform translate-y-full pointer-events-none' 
+                      : 'opacity-100 transform translate-y-0'
+                  }`}
+                >
+                  <BottomTab />
+                </div>
+              )}
             </AppInitializer>
           </div>
         </div>
       </div>
+  );
+};
+
+/**
+ * Main Layout component with SearchModeProvider wrapper
+ * Provides search mode context to entire app
+ */
+const Layout = () => {
+  return (
+    <SearchModeProvider>
+      <LayoutContent />
+    </SearchModeProvider>
   );
 };
 

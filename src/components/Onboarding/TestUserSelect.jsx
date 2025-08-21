@@ -1,24 +1,26 @@
 import { useState, useEffect } from 'react';
 
+const users = [
+  {
+    id: 'feellikemang',
+    name: '느좋돌맹이',
+    preferences: {
+      atmosphere: ['분위기 있는', '기념일에 가기 좋은'],
+      taste: ['디저트가 맛있는', '음료가 달달한'],
+    },
+  },
+  {
+    id: 'alcoholmang',
+    name: '술좋아돌맹이',
+    preferences: {
+      atmosphere: ['옛날 감성', '가성비 좋은'],
+      taste: ['안주가 맛있는', '술 종류가 다양한'],
+    },
+  },
+];
+
 const TestUserSelect = ({ onComplete }) => {
-  const users = [
-    {
-      id: 'feellikemang',
-      name: '느좋돌맹이',
-      preferences: {
-        atmosphere: ['분위기 있는', '기념일에 가기 좋은'],
-        taste: ['디저트가 맛있는', '음료가 달달한'],
-      },
-    },
-    {
-      id: 'alcoholmang',
-      name: '술좋아돌맹이',
-      preferences: {
-        atmosphere: ['옛날 감성', '가성비 좋은'],
-        taste: ['안주가 맛있는', '술 종류가 다양한'],
-      },
-    },
-  ];
+  
 
   const [userTags, setUserTags] = useState({});
 

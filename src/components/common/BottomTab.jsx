@@ -1,7 +1,8 @@
-import { Home, Heart, MapPin, Users, User } from 'lucide-react';
+import { Home, Heart, MapPin } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { memo, useCallback } from 'react';
 
-export default function BottomTab() {
+const BottomTab = memo(function BottomTab() {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -40,32 +41,39 @@ export default function BottomTab() {
   ];
 
   // 현재 경로 기반으로 active 상태 결정
-  const isActive = (path) => {
+  const isActive = useCallback((path) => {
     if (path === '/') return location.pathname === '/';
     return location.pathname.startsWith(path);
-  };
+  }, [location.pathname]);
 
-  const Item = ({ item }) => (
-    <button
-      aria-label={item.label}
-      onClick={() => navigate(item.path)}
-      className={`flex flex-col items-center justify-center p-2 transition-colors ${
-        isActive(item.path) 
-          ? 'text-gray-900' 
-          : 'text-gray-500 hover:text-gray-700'
-      }`}
-    >
-      {item.icon}
-      <span className="text-[10px] mt-1">{item.label}</span>
-    </button>
-  );
+  const Item = memo(({ item }) => {
+    const handleClick = useCallback(() => {
+      navigate(item.path);
+    }, [item.path]);
+
+    return (
+      <button
+        aria-label={`${item.label} 페이지로 이동`}
+        aria-current={isActive(item.path) ? 'page' : undefined}
+        onClick={handleClick}
+        className={`flex flex-col items-center justify-center p-2 transition-colors rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${
+          isActive(item.path) 
+            ? 'text-gray-900' 
+            : 'text-gray-500 hover:text-gray-700'
+        }`}
+      >
+        {item.icon}
+        <span className="text-[10px] mt-1">{item.label}</span>
+      </button>
+    );
+  });
 
   return (
-    <nav className="px-5 z-50">
+    <nav className="px-5 z-50" role="navigation" aria-label="주요 네비게이션">
       <div className="rounded-2xl bg-white/90 backdrop-blur shadow-[0_6px_24px_rgba(0,0,0,0.08)]">
-        <ul className="grid grid-cols-5 p-2">
+        <ul className="grid grid-cols-5 p-2" role="list">
           {navItems.map((item) => (
-            <li key={item.key} className="flex justify-center">
+            <li key={item.key} className="flex justify-center" role="listitem">
               <Item item={item} />
             </li>
           ))}
@@ -73,4 +81,6 @@ export default function BottomTab() {
       </div>
     </nav>
   );
-}
+});
+
+export default BottomTab;

@@ -1,14 +1,20 @@
 import { useKakaoLoader as useKakaoLoaderOrigin } from 'react-kakao-maps-sdk';
 
 export default function useKakaoLoader() {
-  useKakaoLoaderOrigin({
-    /**
-     * ※주의※ appkey의 경우 본인의 appkey를 사용하셔야 합니다.
-     * 해당 키는 docs를 위해 발급된 키 이므로, 임의로 사용하셔서는 안됩니다.
-     *
-     * @참고 https://apis.map.kakao.com/web/guide/
-     */
-    appkey: import.meta.env.VITE_KAKAO_API_KEY,
-    libraries: ['clusterer', 'drawing', 'services'],
-  });
+  const apiKey = import.meta.env.VITE_KAKAO_MAP_API_KEY;
+
+  const opts = {
+    appkey: apiKey && apiKey !== 'YOUR_KAKAO_MAP_API_KEY_HERE' ? apiKey : undefined,
+    libraries: ['clusterer', 'drawing', 'services']
+  };
+
+  // Always call the original hook to satisfy Rules of Hooks
+  const loader = useKakaoLoaderOrigin(opts);
+
+  if (!apiKey || apiKey === 'YOUR_KAKAO_MAP_API_KEY_HERE') {
+    // Warn but do not early-return (hook already invoked)
+    console.warn('카카오맵 API 키가 설정되지 않았습니다. .env.local 파일에 VITE_KAKAO_MAP_API_KEY를 실제 API 키로 설정해주세요.');
+  }
+
+  return loader;
 }

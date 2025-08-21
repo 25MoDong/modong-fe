@@ -1,0 +1,181 @@
+import { memo } from 'react';
+import { X, MapPin, Clock, Phone, Star, Heart } from 'lucide-react';
+
+/**
+ * Place details modal component
+ * @param {Object} props
+ * @param {Object} props.place - Place data
+ * @param {boolean} props.isOpen - Whether modal is open
+ * @param {Function} props.onClose - Close handler
+ */
+const PlaceModal = memo(function PlaceModal({ place, isOpen, onClose }) {
+  if (!isOpen || !place) return null;
+
+  const handleBackdropClick = (e) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+
+  const handleLike = (e) => {
+    e.stopPropagation();
+  };
+
+  const handleCall = (e) => {
+    e.stopPropagation();
+    if (place.contact?.phone) {
+      window.open(`tel:${place.contact.phone}`);
+    }
+  };
+
+  return (
+    <div 
+      className="absolute inset-0 bg-black/50 z-50 flex items-end"
+      onClick={handleBackdropClick}
+    >
+      <div className="bg-white w-full rounded-t-2xl max-h-[70vh] overflow-hidden animate-slide-up">
+        {/* Header */}
+        <div className="relative">
+          {/* Place image or placeholder */}
+          <div className="w-full h-48 bg-gray-200 relative overflow-hidden">
+            {place.image ? (
+              <img 
+                src={place.image} 
+                alt={place.name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-br from-purple-400 to-blue-500 flex items-center justify-center">
+                <span className="text-white text-4xl font-light opacity-50">📍</span>
+              </div>
+            )}
+            
+            {/* Close button */}
+            <button
+              onClick={onClose}
+              className="absolute top-4 right-4 p-2 bg-white/90 hover:bg-white rounded-full transition-all shadow-lg"
+            >
+              <X size={20} className="text-gray-600" />
+            </button>
+            
+            {/* Like button */}
+            <button
+              onClick={handleLike}
+              className="absolute top-4 left-4 p-2 bg-white/90 hover:bg-white rounded-full transition-all shadow-lg"
+            >
+              <Heart 
+                size={20} 
+                className={`${place.userInteraction?.liked ? 'text-red-500 fill-current' : 'text-gray-600'}`} 
+              />
+            </button>
+          </div>
+          
+          {/* Drag handle for mobile */}
+          <div className="absolute top-2 left-1/2 transform -translate-x-1/2">
+            <div className="w-8 h-1 bg-white/60 rounded-full"></div>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="p-6 overflow-y-auto max-h-[calc(70vh-12rem)]">
+          {/* Title and rating */}
+          <div className="mb-4">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              {place.name || '매물메이트카페'}
+            </h2>
+            
+            <div className="flex items-center gap-2 mb-3">
+              <div className="flex items-center gap-1">
+                <Star size={16} className="text-yellow-400 fill-current" />
+                <span className="font-medium text-gray-700">
+                  {place.rating?.average || '4.5'}
+                </span>
+                <span className="text-sm text-gray-500">
+                  ({place.rating?.count || '127'}개 리뷰)
+                </span>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-medium">
+                {place.category || '카페'}
+              </span>
+              <span className="text-sm text-gray-500">
+                300m 이내
+              </span>
+            </div>
+          </div>
+
+          {/* Address */}
+          <div className="flex items-start gap-3 mb-4">
+            <MapPin size={18} className="text-gray-400 mt-0.5 flex-shrink-0" />
+            <span className="text-gray-600 leading-relaxed">
+              {place.address?.full || place.address || '서울시 강남구 역삼동'}
+            </span>
+          </div>
+
+          {/* Hours */}
+          <div className="flex items-start gap-3 mb-4">
+            <Clock size={18} className="text-gray-400 mt-0.5 flex-shrink-0" />
+            <div>
+              <div className="flex items-center gap-2">
+                <span className={`font-medium ${place.hours?.isOpen !== false ? 'text-green-600' : 'text-red-600'}`}>
+                  {place.hours?.isOpen !== false ? '영업중' : '영업종료'}
+                </span>
+                <span className="text-gray-600">
+                  {place.hours?.todayHours || '10:00 - 17:00'}
+                </span>
+              </div>
+              <span className="text-sm text-gray-500 mt-1 block">
+                내 위치로부터 유실률: {place.lossRate || '77%'}
+              </span>
+            </div>
+          </div>
+
+          {/* Description */}
+          {place.description && (
+            <div className="mb-4">
+              <p className="text-gray-600 leading-relaxed">
+                {place.description}
+              </p>
+            </div>
+          )}
+
+          {/* Tags */}
+          <div className="flex flex-wrap gap-2 mb-6">
+            <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm">경치좋음</span>
+            <span className="px-3 py-1 bg-green-50 text-green-700 rounded-full text-sm">카페인중독</span>
+            <span className="px-3 py-1 bg-orange-50 text-orange-700 rounded-full text-sm">썩썩이</span>
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex gap-3 pt-4 border-t border-gray-100">
+            <button
+              onClick={handleLike}
+              className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-medium transition-all ${
+                place.userInteraction?.liked
+                  ? 'bg-red-50 text-red-600 hover:bg-red-100'
+                  : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              <Heart size={16} className={place.userInteraction?.liked ? 'fill-current' : ''} />
+              찜하기
+            </button>
+
+            {place.contact?.phone && (
+              <button
+                onClick={handleCall}
+                className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 transition-all"
+              >
+                <Phone size={16} />
+                전화하기
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+export default PlaceModal;
