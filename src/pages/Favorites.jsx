@@ -48,7 +48,7 @@ export default function Favorites() {
   };
 
   return (
-    <div className="min-h-screen bg-white pb-24">
+    <div className="min-h-screen bg-white pb-6">
       {/* 상단 네이비 헤더 */}
       <header className="bg-[#1B2340] h-36 rounded-b-2xl flex items-center justify-center text-white">
         <div className="w-full px-5">
@@ -59,7 +59,7 @@ export default function Favorites() {
       {/* 상단 액션 영역 */}
       <div className="-mt-4 rounded-t-2xl bg-white px-5 pb-4 pt-3">
         <div className="flex items-center gap-2">
-          <button className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-700">
+          <button className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1">
             <Heart size={14} className="text-[#3C4462]" />
             찜 기반 추천받기
           </button>
@@ -78,15 +78,20 @@ export default function Favorites() {
       </div>
 
       {/* 보석함 그리드 */}
-      <div className="px-5 pb-28">
+      <div className="px-5 pb-6">
         <div className="grid grid-cols-2 gap-4">
-          {collections.map((c) => (
-            <CollectionCard
+          {collections.map((c, index) => (
+            <div
               key={c.id}
-              title={c.title}
-              count={c.count}
-              onClick={() => {}}
-            />
+              className="animate-fadeIn"
+              style={{ animationDelay: `${index * 50}ms` }}
+            >
+              <CollectionCard
+                title={c.title}
+                count={c.count}
+                onClick={() => {}}
+              />
+            </div>
           ))}
         </div>
       </div>

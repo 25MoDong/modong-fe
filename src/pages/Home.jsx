@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import OnboardingFlow from '../components/Onboarding/OnboardingFlow';
 import LocationBar from '../components/home/LocationBar';
@@ -29,21 +29,21 @@ const Home = () => {
     { id: 103, title: '브루클린카페', category: '카페', tags: ['분위기'] }
   ];
 
-  const handleOnboardingComplete = userData => {
+  const handleOnboardingComplete = useCallback((userData) => {
     localStorage.setItem('onboarding_completed', 'true');
     localStorage.setItem('user_data', JSON.stringify(userData));
     setNeedsOnboarding(false);
 
     window.dispatchEvent(new CustomEvent('OnboardingCompleted'));
-  };
+  }, []);
 
   if(needsOnboarding){
     return <OnboardingFlow onComplete={handleOnboardingComplete} />
   }
 
   return (
-    <div className="bg-white min-h-screen">
-      <div className="px-5 pt-4 pb-6">
+    <div className="bg-white h-full flex flex-col">
+      <div className="flex-1 overflow-y-auto no-scrollbar px-4 sm:px-6 pt-4 pb-6">
         <LocationBar hasContainer={false} />
 
         {/* variant -> dark, light 지정 시 검색창 테마 변경 */}
@@ -60,7 +60,7 @@ const Home = () => {
           places={favoriteData}
           variant="default"
           layout="scroll"
-          className="mt-[12px]"
+          className="mt-3"
         />
 
         {/* 오늘의 추천 */}
@@ -68,7 +68,7 @@ const Home = () => {
 
         {/* 날씨/온도 태그 */}
         <TagPills 
-          className="mt-[8px]"
+          className="mt-2"
           tags={['흐림', '비가주륵주륵', '28도']}
         />
 
@@ -77,9 +77,8 @@ const Home = () => {
           places={todayData} 
           variant="compact"
           layout="grid"
-          className="mt-[12px]"
+          className="mt-3"
         />
-        
       </div>
     </div>
 )};

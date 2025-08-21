@@ -16,7 +16,7 @@ const AppInitializer = ({ children }) => {
 
       setShowLoading(shouldShowLoading);
       setIsInitialized(true);
-    }, []);
+    }, [isInitialized]);
 
     const handleLoadingComplete = () => {
       setShowLoading(false);
