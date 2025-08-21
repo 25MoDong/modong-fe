@@ -2,7 +2,10 @@ import { Home, Heart, MapPin } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { memo, useCallback } from 'react';
 
-const BottomTab = memo(function BottomTab() {
+import communityIcon from '/icon/community.svg';
+import myPageIcon from '/icon/myPage.svg';
+
+export default function BottomTab() {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -29,13 +32,13 @@ const BottomTab = memo(function BottomTab() {
     { 
       key: 'community', 
       label: '커뮤니티', 
-      icon: <img src="icon/community.svg" alt="커뮤니티" width={22} height={22} />, 
+      icon: <img src={communityIcon} alt="커뮤니티" width={22} height={22} />,
       path: '/community' 
     },
     { 
       key: 'profile', 
       label: '내 정보', 
-      icon: <img src="icon/myPage.svg" alt="커뮤니티" width={22} height={22} />, 
+      icon: <img src={myPageIcon} alt="내 정보" width={22} height={22} />,
       path: '/profile' 
     }
   ];

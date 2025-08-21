@@ -1,4 +1,5 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import OnboardingFlow from '../components/Onboarding/OnboardingFlow';
 import LocationBar from '../components/home/LocationBar';
 import SearchBar from '../components/common/SearchBar';
@@ -7,25 +8,26 @@ import SectionTitle from '../components/home/SectionTitle';
 import PlaceCards from '../components/common/PlaceCards';
 import TagPills from '../components/common/TagPills';
 
+
 const Home = () => {
   const [needsOnboarding, setNeedsOnboarding] = useState(() => {
     return !localStorage.getItem('onboarding_completed');
   });
 
 
-  // 데이터 정의 - useMemo로 최적화
-  const favoriteData = useMemo(() => [
-    { title: '어나더굿뉴스', category: '카페', tags: ['커피', '디저트'] },
-    { title: '슬로카페달팽이', category: '카페', tags: ['브런치'] },
-    { title: '모던플레이스', category: '레스토랑', tags: ['파스타', '분위기'] },
-    { title: '모던플레이스', category: '레스토랑', tags: ['파스타', '분위기'] },
-  ], []);
+  // 데이터 정의
+  const favoriteData = [
+    { id: 1, title: '어나더굿뉴스', category: '카페', tags: ['커피', '디저트'] },
+    { id: 2, title: '슬로카페달팽이', category: '카페', tags: ['브런치'] },
+    { id: 3, title: '모던플레이스', category: '레스토랑', tags: ['파스타', '분위기'] },
+    { id: 4, title: '모던플레이스', category: '레스토랑', tags: ['파스타', '분위기'] },
+  ];
 
-  const todayData = useMemo(() => [
-    { title: '슬로카페달팽이', category: '카페', tags: ['브런치'] },
-    { title: '모던플레이스', category: '레스토랑', tags: ['파스타'] },
-    { title: '브루클린카페', category: '카페', tags: ['분위기'] }
-  ], []);
+  const todayData = [
+    { id: 101, title: '슬로카페달팽이', category: '카페', tags: ['브런치'] },
+    { id: 102, title: '모던플레이스', category: '레스토랑', tags: ['파스타'] },
+    { id: 103, title: '브루클린카페', category: '카페', tags: ['분위기'] }
+  ];
 
   const handleOnboardingComplete = useCallback((userData) => {
     localStorage.setItem('onboarding_completed', 'true');
@@ -72,7 +74,7 @@ const Home = () => {
 
         {/* 3열 카드 그리드 (칸 간격 12px) */}
         <PlaceCards 
-          places={todayData}
+          places={todayData} 
           variant="compact"
           layout="grid"
           className="mt-3"

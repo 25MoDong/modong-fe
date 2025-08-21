@@ -4,6 +4,8 @@ import Home from './pages/Home';
 import Map from './pages/Map';
 import Search from './pages/Search';
 import Favorites from './pages/Favorites';
+import PlaceDetail from './pages/PlaceDetail'; 
+
 
 export default function App() {
   return (
@@ -26,6 +28,10 @@ export default function App() {
         <Route
           path="search"
           element={<Search/>}
+        />
+        <Route 
+          path="place/:id" 
+          element={<PlaceDetail />} 
         />
 
         <Route path="*" element={<Navigate to="/" replace />} />

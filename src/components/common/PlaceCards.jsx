@@ -1,5 +1,6 @@
 import Card from './Card';
 import { useRef, memo, useCallback, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 
 /**
  * PlaceCards component for displaying a collection of place cards
@@ -72,17 +73,34 @@ const PlaceCards = memo(function PlaceCards({
       onMouseLeave={layout === 'scroll' ? handleMouseLeave : undefined}
       style={layout === 'scroll' ? { touchAction: 'pan-x' } : {}}
     >
-      {places.map((place, i) => (
-        <Card
-          key={place.id || i}
-          title={place.name || place.title}
-          category={place.category}
-          tags={place.tags}
-          liked={place.userInteraction?.liked || place.liked}
-          image={place.images?.[0] || place.image}
-          variant={variant}
-        />
-      ))}
+      {places.map((place, i) => {
+        const card = (
+          <Card
+            key={place.id || i}
+            title={place.name || place.title}
+            category={place.category}
+            tags={place.tags}
+            liked={place.userInteraction?.liked || place.liked}
+            image={place.images?.[0] || place.image}
+            variant={variant}
+          />
+        );
+        const to = place.to ?? (place.id != null ? `/place/${place.id}` : null);
+
+        return to ? (
+          <Link
+            key={place.id ?? i}
+            to={to}
+            className="block shrink-0 cursor-pointer"
+          >
+            {card}
+          </Link>
+        ) : (
+          <div key={place.id ?? i} className="shrink-0">
+            {card}
+          </div>
+        );
+      })}
     </div>
   );
 });
