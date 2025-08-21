@@ -17,7 +17,7 @@ export default function AddCollectionModal({ open, onClose, onSubmit }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40">
+    <div className="fixed inset-0 z-[200] grid place-items-center bg-black/40">
       <div className="w-[90%] max-w-sm rounded-xl bg-white p-5 shadow-xl">
         {/* 헤더 */}
         <div className="mb-3 flex items-center justify-between">

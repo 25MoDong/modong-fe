@@ -1,5 +1,6 @@
 import Card from './Card';
 import { useRef } from 'react';
+import { Link } from 'react-router-dom';
 
 export default function PlaceCards({ 
   places = [], 
@@ -28,17 +29,33 @@ export default function PlaceCards({
       className={`${currentLayout} ${className}`}
       onWheel={layout === 'scroll' ? handleWheel : undefined}
     >
-      {places.map((place, i) => (
-        <Card
-          key={i}
-          title={place.title}
-          category={place.category}
-          tags={place.tags}
-          liked={place.liked}
-          image={place.image}
-          variant={variant}
-        />
-      ))}
+      {places.map((place, i) => {
+        const card = (
+          <Card
+            title={place.title}
+            category={place.category}
+            tags={place.tags}
+            liked={place.liked}
+            image={place.image}
+            variant={variant}
+          />
+        );
+        const to = place.to ?? (place.id != null ? `/place/${place.id}` : null);
+
+        return to ? (
+          <Link
+            key={place.id ?? i}
+            to={to}
+            className="block shrink-0 cursor-pointer"
+          >
+            {card}
+          </Link>
+        ) : (
+          <div key={place.id ?? i} className="shrink-0">
+            {card}
+          </div>
+        );
+      })}
     </div>
   );
 }
