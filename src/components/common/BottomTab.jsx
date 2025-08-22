@@ -32,13 +32,13 @@ function BottomTab() {
     { 
       key: 'community', 
       label: '커뮤니티', 
-      icon: <img src={communityIcon} alt="커뮤니티" width={22} height={22} />,
+      icon: <img src={communityIcon} alt="커뮤니티" width={22} height={22} draggable="false" style={{ WebkitUserDrag: 'none' }} />,
       path: '/community' 
     },
     { 
       key: 'profile', 
       label: '내 정보', 
-      icon: <img src={myPageIcon} alt="내 정보" width={22} height={22} />,
+      icon: <img src={myPageIcon} alt="내 정보" width={22} height={22} draggable="false" style={{ WebkitUserDrag: 'none' }} />,
       path: '/profile' 
     }
   ];

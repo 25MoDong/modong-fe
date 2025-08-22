@@ -77,7 +77,7 @@ const Loading = ({ onComplete }) => {
                   `}
                   style={{
                     '--delay': `${index * 0.075}s`,
-                    '--drop-delay': `${2.2 + index * 0.1}s`,
+                    '--drop-delay': `${2.4 + index * 0.1}s`,
                   }}
                 >
                   {char === ' ' ? '\u00A0' : char}
@@ -90,7 +90,7 @@ const Loading = ({ onComplete }) => {
                         top: '-15px',
                         left: '50%',
                         transformOrigin: 'center',
-                        '--drop-delay': `${2.2 + index * 0.1}s`,
+                        '--drop-delay': `${2.4 + index * 0.1}s`,
                       }}
                     />
                   )}

@@ -73,6 +73,7 @@ const TestUserSelect = ({ onComplete }) => {
                   src="images/dolmaeng.png"
                   alt="돌맹 프로필 이미지"
                   className="w-32 h-auto object-contain object-center"
+                  draggable="false"
                   style={{
                     WebkitUserDrag: 'none',
                   }}

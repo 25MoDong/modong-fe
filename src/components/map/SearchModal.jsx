@@ -259,6 +259,8 @@ const SearchModal = memo(function SearchModal({
                             src={place.image} 
                             alt={place.name}
                             className="w-full h-full object-cover"
+                            draggable="false"
+                            style={{ WebkitUserDrag: 'none' }}
                           />
                         ) : (
                           <div className="w-full h-full bg-gradient-to-br from-purple-100 to-blue-100 flex items-center justify-center">

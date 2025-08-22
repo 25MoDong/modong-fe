@@ -1,5 +1,5 @@
 import { FiHeart } from "react-icons/fi";
-import { useState, memo } from "react";
+import { memo } from "react";
 
 /**
  * Card component for displaying place information
@@ -13,6 +13,7 @@ import { useState, memo } from "react";
  * @param {Function} props.onLikeToggle - Callback when like status changes
  */
 const Card = memo(function Card({
+  id = null,
   title = '어나더굿뉴스',
   category = '카페',
   tags = ['커피'],
@@ -21,25 +22,24 @@ const Card = memo(function Card({
   variant = 'default', // 'default' | 'compact'
   onLikeToggle
 }) {
-  const [isLiked, setIsLiked] = useState(liked);
   const variants = {
     default: {
-      container: "w-36 min-w-36 sm:w-40 sm:min-w-40 rounded-card border border-[#EFEFEF] bg-white shadow-soft overflow-hidden flex-shrink-0 hover:shadow-md transition-shadow",
-      imageHeight: "h-28 sm:h-32",
-      contentPadding: "py-2 px-3",
-      titleStyle: "text-[13px] sm:text-sm font-semibold truncate flex-1 mr-2",
-      heartStyle: "text-gray-400 flex-shrink-0",
+      container: "w-full max-w-[150px] min-w-[140px] rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden flex-shrink-0 hover:shadow-lg hover:border-gray-300 transition-all duration-200",
+      imageHeight: "h-24 sm:h-28",
+      contentPadding: "p-3",
+      titleStyle: "text-sm font-semibold truncate flex-1 mr-2 text-gray-900",
+      heartStyle: "text-gray-400 flex-shrink-0 hover:text-red-500 transition-colors",
       heartSize: 16,
-      subtitleStyle: "mt-[2px] text-xs leading-3 text-gray-500"
+      subtitleStyle: "mt-1 text-xs text-gray-500 leading-tight"
     },
     compact: {
-      container: "rounded-card bg-brand-cream border border-brand-accent/20 overflow-hidden hover:shadow-sm transition-shadow",
-      imageHeight: "h-[110px] sm:h-[120px]",
-      contentPadding: "p-2 sm:p-[8px]",
-      titleStyle: "text-[12px] sm:text-[13px] leading-[16px] font-semibold truncate",
-      heartStyle: "text-brand-accent",
+      container: "w-full rounded-xl bg-white border border-gray-200 overflow-hidden hover:shadow-md hover:border-gray-300 transition-all duration-200",
+      imageHeight: "h-20 sm:h-24",
+      contentPadding: "p-2.5",
+      titleStyle: "text-xs sm:text-sm font-semibold truncate text-gray-900",
+      heartStyle: "text-gray-400 hover:text-red-500 transition-colors",
       heartSize: 14,
-      subtitleStyle: "mt-[2px] text-[10px] sm:text-[11px] leading-[13px] text-gray-500"
+      subtitleStyle: "mt-1 text-xs text-gray-500 leading-tight"
     }
   };
 
@@ -48,7 +48,7 @@ const Card = memo(function Card({
   return (
     <div className={currentVariant.container}>
       <div className={`relative bg-gray-100 ${currentVariant.imageHeight}`}>
-        <img src={image} alt={title} className="w-full h-full object-cover" />
+        <img src={image} alt={title} className="w-full h-full object-cover" draggable="false" style={{ WebkitUserDrag: 'none' }} />
       </div>
       <div className={currentVariant.contentPadding}>
         <div className="flex items-center justify-between">
@@ -56,15 +56,18 @@ const Card = memo(function Card({
             {title}
           </p>
           <button
-            onClick={() => {
-              setIsLiked(!isLiked);
-              onLikeToggle?.(title, !isLiked);
+            onClick={(e) => {
+              // Prevent click from bubbling to parent Link (avoid navigation)
+              e.stopPropagation();
+              e.preventDefault();
+              // Delegate handling to parent (open picker or remove)
+              onLikeToggle?.({ id, title, category, image }, !liked);
             }}
             className="transition-colors hover:scale-110"
-            aria-label={`${isLiked ? 'Remove from' : 'Add to'} favorites`}
+            aria-label={`${liked ? 'Remove from' : 'Add to'} favorites`}
           >
             <FiHeart 
-              className={`${currentVariant.heartStyle} ${isLiked ? 'fill-current' : ''}`} 
+              className={`${currentVariant.heartStyle} ${liked ? 'fill-current' : ''}`} 
               size={currentVariant.heartSize} 
             />
           </button>

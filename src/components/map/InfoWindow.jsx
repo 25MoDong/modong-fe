@@ -2,6 +2,7 @@ import { memo } from 'react';
 import { CustomOverlayMap } from 'react-kakao-maps-sdk';
 import { Heart, MapPin, Clock, Phone, Star, X } from 'lucide-react';
 import { CATEGORY_CONFIG, PRICE_RANGES } from '../../lib/constants';
+import { useNavigate } from 'react-router-dom';
 
 /**
  * Info window component for displaying place details
@@ -10,10 +11,13 @@ import { CATEGORY_CONFIG, PRICE_RANGES } from '../../lib/constants';
  * @param {Function} props.onClose - Close handler
  */
 const InfoWindow = memo(function InfoWindow({ place, onClose }) {
+  const navigate = useNavigate();
+  
   if (!place || place.isCluster) return null;
 
-
-  // NOTE: like/call handlers removed (not used). Implement when adding buttons.
+  const handleDetailClick = () => {
+    navigate(`/place/${place.id || 1}`);
+  };
 
   return (
     <CustomOverlayMap
@@ -114,35 +118,24 @@ const InfoWindow = memo(function InfoWindow({ place, onClose }) {
           23m 이내
         </div>
 
-        {/* 5-star rating */}
-        <div style={{
-          position: 'absolute',
-          left: '102px',
-          top: '72px',
-          display: 'flex',
-          gap: '10px',
-          alignItems: 'center'
-        }}>
-          <div style={{ display: 'flex', gap: '10px' }}>
-            {[...Array(5)].map((_, i) => (
-              <Star 
-                key={i}
-                size={12} 
-                style={{ color: '#212842' }}
-                fill="#212842"
-              />
-            ))}
-          </div>
-          <div style={{
+        {/* Detail link */}
+        <button
+          onClick={handleDetailClick}
+          style={{
+            position: 'absolute',
+            left: '102px',
+            top: '72px',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
             fontWeight: 600,
             fontSize: '11px',
             lineHeight: '13px',
-            color: '#000000',
-            marginLeft: '10px'
-          }}>
-            후기 보러가기 &gt;
-          </div>
-        </div>
+            color: '#000000'
+          }}
+        >
+          이 장소 자세히 보기 &gt;
+        </button>
 
         {/* Tags */}
         <div style={{

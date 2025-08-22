@@ -1,5 +1,6 @@
 import Card from './Card';
-import { useRef, memo, useCallback, useEffect } from 'react';
+import { useRef, memo, useCallback, useEffect, useState } from 'react';
+import { loadMapping } from '../../lib/favoritesStorage';
 import { Link } from 'react-router-dom';
 
 /**
@@ -14,10 +15,14 @@ const PlaceCards = memo(function PlaceCards({
   places = [], 
   variant = 'default',
   layout = 'grid', // 'grid' | 'scroll'
-  className = ''
+  className = '',
+  onLikeToggle // (place, liked) => void
 }) {
   const scrollRef = useRef(null);
   const wheelListenerRef = useRef(null);
+  
+  // Load favorites mapping once for all cards - performance optimization
+  const favoritesMapping = loadMapping();
 
 
   // 마우스 진입/이탈 시 페이지 스크롤 제어
@@ -47,20 +52,45 @@ const PlaceCards = memo(function PlaceCards({
     }
   }, [layout]);
 
+  // 스크롤 상태 관리 (선택적 스크롤 인디케이터를 위해)
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const updateScrollButtons = useCallback(() => {
+    if (scrollRef.current && layout === 'scroll') {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+      setCanScrollLeft(scrollLeft > 0);
+      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 1);
+    }
+  }, [layout]);
+
   // 컴포넌트 언마운트 시 리소스 정리
   useEffect(() => {
     const currentElement = scrollRef.current;
     const currentListener = wheelListenerRef.current;
+    
+    // 초기 스크롤 버튼 상태 업데이트
+    updateScrollButtons();
+    
+    // 스크롤 이벤트 리스너 추가 (스크롤 버튼 상태 업데이트용)
+    const handleScroll = () => updateScrollButtons();
+    if (currentElement && layout === 'scroll') {
+      currentElement.addEventListener('scroll', handleScroll, { passive: true });
+    }
+    
     return () => {
       if (currentElement && currentListener) {
         currentElement.removeEventListener('wheel', currentListener);
       }
+      if (currentElement && layout === 'scroll') {
+        currentElement.removeEventListener('scroll', handleScroll);
+      }
       document.body.style.overflow = '';
     };
-  }, []);
+  }, [layout, updateScrollButtons]);
   const layoutStyles = {
-    grid: "grid grid-cols-2 xs:grid-cols-3 gap-3 bg-secondary-300 py-4 px-3 rounded-lg",
-    scroll: "flex gap-3 overflow-x-auto scrollbar-hide pb-2 pl-4 sm:pl-6 -mx-4 sm:-mx-6 min-w-0"
+    grid: "grid grid-cols-3 gap-3 p-4 bg-gray-50/50 rounded-xl",
+    scroll: "flex gap-4 overflow-x-auto scrollbar-hide pb-3 px-4 -mx-4 sm:px-6 sm:-mx-6"
   };
 
   const currentLayout = layoutStyles[layout] || layoutStyles.grid;
@@ -71,18 +101,25 @@ const PlaceCards = memo(function PlaceCards({
       className={`${currentLayout} ${className}`}
       onMouseEnter={layout === 'scroll' ? handleMouseEnter : undefined}
       onMouseLeave={layout === 'scroll' ? handleMouseLeave : undefined}
-      style={layout === 'scroll' ? { touchAction: 'pan-x' } : {}}
+      style={layout === 'scroll' ? { 
+        touchAction: 'pan-x',
+        scrollBehavior: 'smooth',
+        WebkitOverflowScrolling: 'touch'
+      } : {}}
     >
       {places.map((place, i) => {
+        const isFavorited = Boolean(place.id && (favoritesMapping[String(place.id)] || []).length > 0);
         const card = (
           <Card
             key={place.id || i}
+            id={place.id}
             title={place.name || place.title}
             category={place.category}
             tags={place.tags}
-            liked={place.userInteraction?.liked || place.liked}
+            liked={place.userInteraction?.liked || place.liked || isFavorited}
             image={place.images?.[0] || place.image}
             variant={variant}
+            onLikeToggle={(item, liked) => onLikeToggle?.(place, liked)}
           />
         );
         const to = place.to ?? (place.id != null ? `/place/${place.id}` : null);
@@ -91,12 +128,13 @@ const PlaceCards = memo(function PlaceCards({
           <Link
             key={place.id ?? i}
             to={to}
-            className="block shrink-0 cursor-pointer"
+            state={{ place }}
+            className={`block ${layout === 'scroll' ? 'flex-shrink-0' : ''} cursor-pointer`}
           >
             {card}
           </Link>
         ) : (
-          <div key={place.id ?? i} className="shrink-0">
+          <div key={place.id ?? i} className={layout === 'scroll' ? 'flex-shrink-0' : ''}>
             {card}
           </div>
         );
