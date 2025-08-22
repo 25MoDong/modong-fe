@@ -17,6 +17,8 @@ const StampCard = memo(function StampCard({ onWrite }) {
             src="images/dolmaeng.png"
             alt="돌맹이 캐릭터"
             className="absolute top-0 right-0 w-[92px] h-[77px] transform -translate-x-5 translate-y-1/3 z-0"
+            draggable="false"
+            style={{ WebkitUserDrag: 'none' }}
           />
           <button 
             onClick={onWrite}

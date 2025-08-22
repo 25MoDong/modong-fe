@@ -17,50 +17,50 @@ export default function AddCollectionModal({ open, onClose, onSubmit }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[200] grid place-items-center bg-black/40">
-      <div className="w-[90%] max-w-sm rounded-xl bg-white p-5 shadow-xl">
-        {/* 헤더 */}
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-base font-semibold">새 돌멩이 보석함</h3>
-          <button
-            aria-label="닫기"
-            onClick={onClose}
-            className="rounded-full p-1 text-gray-500 hover:bg-gray-100"
-          >
-            <X size={18} />
-          </button>
-        </div>
+    <div className="absolute inset-0 z-[200] flex items-center justify-center bg-black/40">
+      <div className="w-[90%] max-w-[350px] rounded-xl bg-white p-5 shadow-xl">
+      {/* 헤더 */}
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-base font-semibold">새 돌멩이 보석함</h3>
+        <button
+          aria-label="닫기"
+          onClick={onClose}
+          className="rounded-full p-1 text-gray-500 hover:bg-gray-100"
+        >
+          <X size={18} />
+        </button>
+      </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium">
-              새 돌멩이 보석함 이름 <span className="text-red-500">*</span>
-            </span>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="예: 카공하기 좋은 곳"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-gray-400"
-            />
-          </label>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <label className="block">
+          <span className="mb-1 block text-sm font-medium">
+            새 돌멩이 보석함 이름 <span className="text-red-500">*</span>
+          </span>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="예: 카공하기 좋은 곳"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-gray-400"
+          />
+        </label>
 
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium">새 돌멩이 보석함 설명</span>
-            <input
-              value={desc}
-              onChange={(e) => setDesc(e.target.value)}
-              placeholder="선택 입력"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-gray-400"
-            />
-          </label>
+        <label className="block">
+          <span className="mb-1 block text-sm font-medium">새 돌멩이 보석함 설명</span>
+          <input
+            value={desc}
+            onChange={(e) => setDesc(e.target.value)}
+            placeholder="선택 입력"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-gray-400"
+          />
+        </label>
 
-          <button
-            type="submit"
-            className="mt-2 w-full rounded-md bg-[#3C4462] py-2 text-sm font-semibold text-white"
-          >
-            추가하기
-          </button>
-        </form>
+        <button
+          type="submit"
+          className="mt-2 w-full rounded-md bg-[#3C4462] py-2 text-sm font-semibold text-white"
+        >
+          추가하기
+        </button>
+      </form>
       </div>
     </div>
   );

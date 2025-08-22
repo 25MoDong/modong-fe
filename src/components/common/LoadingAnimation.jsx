@@ -46,8 +46,10 @@ const LoadingAnimation = ({ size = 'w-16 h-16', className = '' }) => {
         src={BLINK_SEQUENCE[currentFrame]}
         alt="돌맹이 깜빡임"
         className="w-full h-full object-contain"
+        draggable="false"
         style={{
           imageRendering: 'auto',
+          WebkitUserDrag: 'none',
         }}
       />
     </div>

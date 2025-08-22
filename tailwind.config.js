@@ -28,6 +28,7 @@ export default {
         // 새로운 애니메이션들
         'drop-dot': 'dropDot 0.8s ease-in-out var(--drop-delay) forwards',
         'char-squash': 'charSquash 0.8s ease-in-out var(--drop-delay) forwards',
+        'stone-to-gem': 'stoneToGem 1.5s ease-in-out forwards',
       },
       keyframes: {
         charWave: {
@@ -96,6 +97,27 @@ export default {
         slideUp: {
           '0%': { transform: 'translateY(100%)' },
           '100%': { transform: 'translateY(0)' },
+        },
+        stoneToGem: {
+          '0%': { 
+            transform: 'rotate(0deg) scale(1)',
+            background: 'linear-gradient(135deg, #9CA3AF, #6B7280)',
+            borderRadius: '50%'
+          },
+          '30%': { 
+            transform: 'rotate(180deg) scale(1.1)',
+            borderRadius: '30%'
+          },
+          '60%': { 
+            transform: 'rotate(315deg) scale(0.9)',
+            borderRadius: '15%'
+          },
+          '100%': { 
+            transform: 'rotate(45deg) scale(1)',
+            background: 'linear-gradient(135deg, #3B82F6, #1D4ED8, #1E40AF)',
+            borderRadius: '10px',
+            boxShadow: '0 10px 30px rgba(59, 130, 246, 0.4)'
+          }
         },
       },
       screens: {

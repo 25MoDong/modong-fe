@@ -36,6 +36,8 @@ const SearchResultsList = memo(function SearchResultsList({
                   src={place.image} 
                   alt={place.name}
                   className="w-full h-full object-cover"
+                  draggable="false"
+                  style={{ WebkitUserDrag: 'none' }}
                 />
               ) : (
                 <div className="w-full h-full bg-gray-300 flex items-center justify-center">

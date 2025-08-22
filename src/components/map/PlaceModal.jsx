@@ -43,6 +43,8 @@ const PlaceModal = memo(function PlaceModal({ place, isOpen, onClose }) {
                 src={place.image} 
                 alt={place.name}
                 className="w-full h-full object-cover"
+                draggable="false"
+                style={{ WebkitUserDrag: 'none' }}
               />
             ) : (
               <div className="w-full h-full bg-gradient-to-br from-purple-400 to-blue-500 flex items-center justify-center">

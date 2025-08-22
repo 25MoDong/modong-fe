@@ -12,21 +12,21 @@ export default function FavoritesPickerSheet({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center">
-      {/* dim */}
-      <button
-        aria-label="닫기"
-        onClick={onClose}
-        className="absolute inset-0 z-0 bg-black/30"
-      />
-      {/* sheet */}
-      <div className="
-          relative z-10 mt-0 w-full
-          max-w-[400px] min-w-[360px]  /* Layout과 유사한 폭 */
-          rounded-t-[20px] bg-white shadow-[0_-8px_24px_rgba(0,0,0,0.12)]
-          overflow-hidden
-        "
-      >
+    <div className="fixed inset-0 z-[60] flex items-center justify-center">
+      <div className="w-full max-w-sm sm:max-w-md lg:w-[390px] lg:max-w-[400px] mx-auto h-full flex items-end justify-center">
+        {/* dim */}
+        <button
+          aria-label="닫기"
+          onClick={onClose}
+          className="absolute inset-0 z-0 bg-black/30"
+        />
+        {/* sheet */}
+        <div className="
+            relative z-10 mt-0 w-full
+            rounded-t-[20px] bg-white shadow-[0_-8px_24px_rgba(0,0,0,0.12)]
+            overflow-hidden
+          "
+        >
         {/* 헤더 */}
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3">
           <h3 className="text-[15px] font-semibold text-[#1B2340]">
@@ -103,6 +103,7 @@ export default function FavoritesPickerSheet({
           >
             저장
           </button>
+        </div>
         </div>
       </div>
     </div>
