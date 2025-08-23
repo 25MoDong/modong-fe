@@ -1,4 +1,6 @@
-import { memo } from 'react';
+import { memo, useState, useEffect } from 'react';
+import api from '../../lib/api';
+import backend from '../../lib/backend';
 import { X, MapPin, Clock, Phone, Star, Heart } from 'lucide-react';
 
 /**
@@ -9,6 +11,27 @@ import { X, MapPin, Clock, Phone, Star, Heart } from 'lucide-react';
  * @param {Function} props.onClose - Close handler
  */
 const PlaceModal = memo(function PlaceModal({ place, isOpen, onClose }) {
+  const [detailed, setDetailed] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+    if (!isOpen || !place?.id) { setDetailed(null); return; }
+    const fetchDetails = async () => {
+      try {
+        const data = await backend.getPlaceById(place.id);
+        if (!mounted) return;
+        setDetailed(data || null);
+      } catch (err) {
+        console.error('Failed to load place details', err);
+        if (mounted) setDetailed(null);
+      }
+    };
+    fetchDetails();
+    return () => { mounted = false; };
+  }, [isOpen, place?.id]);
+
+  const effective = detailed || place;
+
   if (!isOpen || !place) return null;
 
   const handleBackdropClick = (e) => {
@@ -23,8 +46,8 @@ const PlaceModal = memo(function PlaceModal({ place, isOpen, onClose }) {
 
   const handleCall = (e) => {
     e.stopPropagation();
-    if (place.contact?.phone) {
-      window.open(`tel:${place.contact.phone}`);
+    if (effective.contact?.phone) {
+      window.open(`tel:${effective.contact.phone}`);
     }
   };
 
@@ -38,10 +61,10 @@ const PlaceModal = memo(function PlaceModal({ place, isOpen, onClose }) {
         <div className="relative">
           {/* Place image or placeholder */}
           <div className="w-full h-48 bg-gray-200 relative overflow-hidden">
-            {place.image ? (
+            {effective.image ? (
               <img 
-                src={place.image} 
-                alt={place.name}
+                src={effective.image} 
+                alt={effective.name}
                 className="w-full h-full object-cover"
                 draggable="false"
                 style={{ WebkitUserDrag: 'none' }}
@@ -67,7 +90,7 @@ const PlaceModal = memo(function PlaceModal({ place, isOpen, onClose }) {
             >
               <Heart 
                 size={20} 
-                className={`${place.userInteraction?.liked ? 'text-red-500 fill-current' : 'text-gray-600'}`} 
+                className={`${effective.userInteraction?.liked ? 'text-red-500 fill-current' : 'text-gray-600'}`} 
               />
             </button>
           </div>
@@ -83,24 +106,24 @@ const PlaceModal = memo(function PlaceModal({ place, isOpen, onClose }) {
           {/* Title and rating */}
           <div className="mb-4">
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              {place.name || '매물메이트카페'}
+              {effective.name || '매물메이트카페'}
             </h2>
             
             <div className="flex items-center gap-2 mb-3">
               <div className="flex items-center gap-1">
                 <Star size={16} className="text-yellow-400 fill-current" />
                 <span className="font-medium text-gray-700">
-                  {place.rating?.average || '4.5'}
+                  {effective.rating?.average || '4.5'}
                 </span>
                 <span className="text-sm text-gray-500">
-                  ({place.rating?.count || '127'}개 리뷰)
+                  ({effective.rating?.count || '127'}개 리뷰)
                 </span>
               </div>
             </div>
             
             <div className="flex items-center gap-2">
               <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-medium">
-                {place.category || '카페'}
+                {effective.category || '카페'}
               </span>
               <span className="text-sm text-gray-500">
                 300m 이내
@@ -112,7 +135,7 @@ const PlaceModal = memo(function PlaceModal({ place, isOpen, onClose }) {
           <div className="flex items-start gap-3 mb-4">
             <MapPin size={18} className="text-gray-400 mt-0.5 flex-shrink-0" />
             <span className="text-gray-600 leading-relaxed">
-              {place.address?.full || place.address || '서울시 강남구 역삼동'}
+              {effective.address?.full || effective.address || '서울시 강남구 역삼동'}
             </span>
           </div>
 
@@ -121,24 +144,24 @@ const PlaceModal = memo(function PlaceModal({ place, isOpen, onClose }) {
             <Clock size={18} className="text-gray-400 mt-0.5 flex-shrink-0" />
             <div>
               <div className="flex items-center gap-2">
-                <span className={`font-medium ${place.hours?.isOpen !== false ? 'text-green-600' : 'text-red-600'}`}>
-                  {place.hours?.isOpen !== false ? '영업중' : '영업종료'}
+                <span className={`font-medium ${effective.hours?.isOpen !== false ? 'text-green-600' : 'text-red-600'}`}>
+                  {effective.hours?.isOpen !== false ? '영업중' : '영업종료'}
                 </span>
                 <span className="text-gray-600">
-                  {place.hours?.todayHours || '10:00 - 17:00'}
+                  {effective.hours?.todayHours || '10:00 - 17:00'}
                 </span>
               </div>
               <span className="text-sm text-gray-500 mt-1 block">
-                내 위치로부터 유실률: {place.lossRate || '77%'}
+                내 위치로부터 유실률: {effective.lossRate || '77%'}
               </span>
             </div>
           </div>
 
           {/* Description */}
-          {place.description && (
+          {effective.description && (
             <div className="mb-4">
               <p className="text-gray-600 leading-relaxed">
-                {place.description}
+                {effective.description}
               </p>
             </div>
           )}
@@ -155,16 +178,16 @@ const PlaceModal = memo(function PlaceModal({ place, isOpen, onClose }) {
             <button
               onClick={handleLike}
               className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-medium transition-all ${
-                place.userInteraction?.liked
+                effective.userInteraction?.liked
                   ? 'bg-red-50 text-red-600 hover:bg-red-100'
                   : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
               }`}
             >
-              <Heart size={16} className={place.userInteraction?.liked ? 'fill-current' : ''} />
+              <Heart size={16} className={effective.userInteraction?.liked ? 'fill-current' : ''} />
               찜하기
             </button>
 
-            {place.contact?.phone && (
+            {effective.contact?.phone && (
               <button
                 onClick={handleCall}
                 className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 transition-all"

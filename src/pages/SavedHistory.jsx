@@ -1,5 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, MapPin, Clock, ChevronDown } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import Toast from '../components/common/Toast';
+import { loadMapping, loadPlaceCache, saveMapping } from '../lib/favoritesStorage';
 
 const SavedHistory = () => {
   const [activeTab, setActiveTab] = useState('local'); // 'local' or 'outside'
@@ -7,38 +10,28 @@ const SavedHistory = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [placeToDelete, setPlaceToDelete] = useState(null);
 
-  // 더미 데이터 (state로 관리)
-  const [localPlaces, setLocalPlaces] = useState([
-    {
-      id: 1,
-      name: '메롱메롱카페',
-      distance: '300m 이내',
-      hours: '영업시간: 10:00 - 17:00',
-      similarity: '내 취향과의 유사도 85%',
-      image: null
-    },
-    {
-      id: 2,
-      name: '돌멩이 베이커리',
-      distance: '450m 이내',
-      hours: '영업시간: 08:00 - 20:00',
-      similarity: '내 취향과의 유사도 92%',
-      image: null
-    }
-  ]);
+  // 실제 로컬 스토리지 기반 데이터
+  const [localPlaces, setLocalPlaces] = useState([]); // '찜한 장소' (favorites mapping + cache)
+  const [outsidePlaces, setOutsidePlaces] = useState([]); // PlaceAddModal로 추가된 장소들 (favorite_places key)
 
-  const [outsidePlaces, setOutsidePlaces] = useState([
-    {
-      id: 3,
-      name: '강남 맛집',
-      distance: '2.3km',
-      hours: '영업시간: 11:00 - 22:00',
-      similarity: '내 취향과의 유사도 78%',
-      image: null
-    }
-  ]);
+  // load from storage on mount
+  useLoadSavedPlaces(setLocalPlaces, setOutsidePlaces);
 
   const currentPlaces = activeTab === 'local' ? localPlaces : outsidePlaces;
+
+  // 안전한 문자열 렌더링: 객체가 들어오면 가능한 텍스트 필드를 선택
+  function safeText(val) {
+    if (val == null) return '';
+    if (typeof val === 'string' || typeof val === 'number') return String(val);
+    if (typeof val === 'object') {
+      if (typeof val.todayHours === 'string') return val.todayHours;
+      if (typeof val.text === 'string') return val.text;
+      if (typeof val.name === 'string') return val.name;
+      if (val.isOpen !== undefined) return val.isOpen ? '영업중' : '영업종료';
+      try { return JSON.stringify(val); } catch { return ''; }
+    }
+    return '';
+  }
 
   // 삭제 관련 함수들
   const handleDeleteClick = (place) => {
@@ -46,13 +39,33 @@ const SavedHistory = () => {
     setShowDeleteModal(true);
   };
 
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+
   const handleDeleteConfirm = () => {
     if (!placeToDelete) return;
 
     if (activeTab === 'local') {
+      // remove from mapping entirely
+      try {
+        const map = loadMapping();
+        delete map[String(placeToDelete.id)];
+        saveMapping(map);
+      } catch (e) {}
       setLocalPlaces(prev => prev.filter(place => place.id !== placeToDelete.id));
+      setToastMessage('찜한 장소에서 삭제되었습니다.');
+      setShowToast(true);
     } else {
+      // remove from favorite_places in localStorage
+      try {
+        const raw = localStorage.getItem('favorite_places') || '[]';
+        const arr = JSON.parse(raw);
+        const filtered = arr.filter(p => String(p.id) !== String(placeToDelete.id));
+        localStorage.setItem('favorite_places', JSON.stringify(filtered));
+      } catch (e) {}
       setOutsidePlaces(prev => prev.filter(place => place.id !== placeToDelete.id));
+      setToastMessage('내 지역 외 장소 목록에서 삭제되었습니다.');
+      setShowToast(true);
     }
 
     setShowDeleteModal(false);
@@ -137,6 +150,40 @@ const SavedHistory = () => {
         </button>
       </div>
 
+      {/* 탭 전체 클릭 영역 (텍스트 이외의 영역도 클릭되도록 투명 버튼 오버레이) */}
+      <div style={{ position: 'absolute', top: '94px', left: '0', right: '0', height: '40px', pointerEvents: 'none' }}>
+        <button
+          onClick={() => setActiveTab('local')}
+          aria-label="내 지역 장소 탭"
+          style={{
+            position: 'absolute',
+            left: '0',
+            top: '0',
+            bottom: '0',
+            width: '50%',
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            pointerEvents: 'auto'
+          }}
+        />
+        <button
+          onClick={() => setActiveTab('outside')}
+          aria-label="내 지역 외의 장소 탭"
+          style={{
+            position: 'absolute',
+            right: '0',
+            top: '0',
+            bottom: '0',
+            width: '50%',
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            pointerEvents: 'auto'
+          }}
+        />
+      </div>
+
       {/* 탭 구분선 */}
       <div style={{
         position: 'absolute',
@@ -213,9 +260,13 @@ const SavedHistory = () => {
         overflowY: 'auto',
         paddingBottom: '20px'
       }}>
+        <AnimatePresence>
         {currentPlaces.map((place, index) => (
-          <div
+          <motion.div
             key={place.id}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.98, height: 0, marginBottom: 0 }}
             style={{
               width: '323px',
               height: '129px',
@@ -253,7 +304,7 @@ const SavedHistory = () => {
               alignItems: 'center',
               color: '#000000'
             }}>
-              {place.name}
+              {safeText(place.name)}
             </div>
 
             {/* 거리 */}
@@ -271,7 +322,7 @@ const SavedHistory = () => {
               alignItems: 'center',
               color: '#6A6F82'
             }}>
-              {place.distance}
+              {safeText(place.distance)}
             </div>
 
             {/* 영업시간 */}
@@ -289,7 +340,7 @@ const SavedHistory = () => {
               alignItems: 'center',
               color: '#6A6F82'
             }}>
-              {place.hours}
+              {safeText(place.hours)}
             </div>
 
             {/* 취향 유사도 */}
@@ -307,7 +358,7 @@ const SavedHistory = () => {
               alignItems: 'center',
               color: '#6A6F82'
             }}>
-              {place.similarity}
+              {safeText(place.similarity)}
             </div>
 
             {/* X 삭제 아이콘 */}
@@ -329,8 +380,9 @@ const SavedHistory = () => {
             >
               <X size={20} color="#9CA3AF" />
             </button>
-          </div>
+          </motion.div>
         ))}
+        </AnimatePresence>
       </div>
 
       {/* 하단 네비게이션 */}
@@ -503,8 +555,47 @@ const SavedHistory = () => {
           </div>
         </div>
       )}
+
+      {/* 삭제 토스트 */}
+      <Toast
+        message={toastMessage}
+        isVisible={showToast}
+        onClose={() => setShowToast(false)}
+        type="success"
+      />
     </div>
   );
 };
+
+// load saved data from localStorage / favorites mapping on mount
+// (kept outside the component for clarity)
+function useLoadSavedPlaces(setLocalPlaces, setOutsidePlaces) {
+  useEffect(() => {
+    // load favorites from mapping + cache
+    try {
+      const mapping = loadMapping();
+      const cache = loadPlaceCache();
+      const local = Object.keys(mapping).map(pid => {
+        const place = cache[String(pid)];
+        if (place) return place;
+        return { id: Number(pid), name: '알 수 없는 장소' };
+      });
+      setLocalPlaces(local);
+    } catch (e) {
+      setLocalPlaces([]);
+    }
+
+    // load outside places added via PlaceAddModal
+    try {
+      const raw = localStorage.getItem('favorite_places') || '[]';
+      const outside = JSON.parse(raw);
+      setOutsidePlaces(Array.isArray(outside) ? outside : []);
+    } catch (e) {
+      setOutsidePlaces([]);
+    }
+  }, [setLocalPlaces, setOutsidePlaces]);
+}
+
+export { useLoadSavedPlaces };
 
 export default SavedHistory;

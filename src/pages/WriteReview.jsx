@@ -1,6 +1,8 @@
 import { useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ImagePlus, ChevronDown, ChevronUp } from 'lucide-react';
+import { ImagePlus, ChevronDown, ChevronUp, ArrowLeft } from 'lucide-react';
+import MyReviewsList from '../components/review/MyReviewsList';
+import { createReview } from '../lib/reviewApi';
 
 const WriteReview = () => {
   const navigate = useNavigate();
@@ -22,6 +24,8 @@ const WriteReview = () => {
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [showToast, setShowToast] = useState(false);
+  const [activeTab, setActiveTab] = useState('write'); // 'write' or 'myreviews'
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // 방문 가능한 장소 목록 (실제로는 API에서 가져올 것)
   const availablePlaces = [
@@ -125,7 +129,7 @@ const WriteReview = () => {
   };
 
   // 완료 버튼 핸들러
-  const handleComplete = () => {
+  const handleComplete = async () => {
     // 필수 항목 검증
     if (!reviewData.selectedPlace) {
       showToastMessage('방문한 장소를 선택해주세요.');
@@ -142,11 +146,35 @@ const WriteReview = () => {
       return;
     }
 
-    // TODO: 실제 API 호출로 후기 저장
-    console.log('후기 데이터:', reviewData);
-    
-    // 후기 완료 페이지로 이동
-    navigate('/review-complete');
+    if (isSubmitting) return; // 중복 제출 방지
+
+    setIsSubmitting(true);
+    try {
+      const userId = localStorage.getItem('MODONG_USER_ID') || '1';
+      
+      // API에 맞는 형식으로 데이터 준비
+      const apiData = {
+        userId: parseInt(userId),
+        storeId: reviewData.placeId,
+        content: reviewData.oneLineReview,
+        // 추가 필드들이 필요하면 여기에 추가
+      };
+      
+      // 실제 API 호출로 후기 저장
+      await createReview(apiData);
+      showToastMessage('후기가 성공적으로 작성되었습니다!');
+      
+      // 잠시 후 완료 페이지로 이동
+      setTimeout(() => {
+        navigate('/review-complete');
+      }, 1500);
+      
+    } catch (error) {
+      console.error('Failed to submit review:', error);
+      showToastMessage('후기 작성에 실패했습니다. 다시 시도해주세요.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -160,18 +188,52 @@ const WriteReview = () => {
       </style>
       <div className="h-screen bg-white flex flex-col max-w-sm mx-auto relative pb-20">
         {/* 헤더 */}
-        <div className="flex-shrink-0 text-center py-6 border-b border-gray-200">
-          <h1 className="text-xl font-semibold text-black">후기 작성</h1>
+        <div className="flex-shrink-0 border-b border-gray-200">
+          <div className="flex items-center justify-center py-6 relative">
+            <button 
+              onClick={() => navigate(-1)}
+              className="absolute left-4 p-2 hover:bg-gray-100 rounded-full transition-colors"
+            >
+              <ArrowLeft size={20} className="text-gray-600" />
+            </button>
+            <h1 className="text-xl font-semibold text-black">후기</h1>
+          </div>
+          
+          {/* 탭 메뉴 */}
+          <div className="flex border-b border-gray-100">
+            <button
+              onClick={() => setActiveTab('write')}
+              className={`flex-1 py-3 text-sm font-medium transition-colors relative ${
+                activeTab === 'write' 
+                  ? 'text-blue-600 border-b-2 border-blue-600' 
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              후기 작성
+            </button>
+            <button
+              onClick={() => setActiveTab('myreviews')}
+              className={`flex-1 py-3 text-sm font-medium transition-colors relative ${
+                activeTab === 'myreviews' 
+                  ? 'text-blue-600 border-b-2 border-blue-600' 
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              내 후기
+            </button>
+          </div>
         </div>
 
         {/* 스크롤 가능한 콘텐츠 영역 - 스크롤바 숨김 */}
         <div 
-          className="flex-1 overflow-y-auto px-6 py-6 hide-scrollbar" 
+          className="flex-1 overflow-y-auto hide-scrollbar" 
           style={{
             scrollbarWidth: 'none',
             msOverflowStyle: 'none'
           }}
         >
+          {activeTab === 'write' ? (
+            <div className="px-6 py-6">
         {/* 방문한 장소 선택 */}
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-4">
@@ -307,23 +369,38 @@ const WriteReview = () => {
             onChange={handleFileChange}
             className="hidden"
           />
-        </div>
+            </div>
+            </div>
+          ) : (
+            <div className="px-6 py-6">
+              <MyReviewsList />
+            </div>
+          )}
         </div>
 
-        {/* 완료 버튼 - 하단 고정 */}
+        {/* 완료 버튼 - 하단 고정 (후기 작성 탭에서만 표시) */}
+        {activeTab === 'write' && (
         <div className="flex-shrink-0 p-6 bg-white border-t border-gray-100">
           <button
             onClick={handleComplete}
-            disabled={!isCompleteButtonEnabled()}
-            className={`w-full py-4 rounded-xl text-lg font-semibold transition-colors ${
-              isCompleteButtonEnabled()
+            disabled={!isCompleteButtonEnabled() || isSubmitting}
+            className={`w-full py-4 rounded-xl text-lg font-semibold transition-colors flex items-center justify-center gap-2 ${
+              isCompleteButtonEnabled() && !isSubmitting
                 ? 'bg-slate-800 text-white hover:bg-slate-700 cursor-pointer'
                 : 'bg-gray-300 text-gray-500 cursor-not-allowed'
             }`}
           >
-            완료
+            {isSubmitting ? (
+              <>
+                <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                <span>작성 중...</span>
+              </>
+            ) : (
+              '완료'
+            )}
           </button>
         </div>
+        )}
 
         {/* 토스트 메시지 - 웹앱뷰 내에서만 표시 */}
         {showToast && (

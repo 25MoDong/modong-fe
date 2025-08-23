@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import OnboardingFlow from '../components/Onboarding/OnboardingFlow';
 import LocationBar from '../components/home/LocationBar';
@@ -9,7 +9,7 @@ import PlaceCards from '../components/common/PlaceCards';
 import FavoritesPickerSheet from '../components/favorites/FavoritesPickerSheet.jsx';
 import AddCollectionModal from '../components/favorites/AddCollectionModal.jsx';
 import { loadCollections, loadMapping, saveMapping, addCollection, recountCollectionCounts, savePlace } from '../lib/favoritesStorage';
-import { useEffect } from 'react';
+import { usePlaces } from '../hooks/usePlaces';
 import TagPills from '../components/common/TagPills';
 
 
@@ -18,6 +18,9 @@ const Home = () => {
   const [needsOnboarding, setNeedsOnboarding] = useState(() => {
     return !localStorage.getItem('onboarding_completed');
   });
+
+  // 백엔드 데이터 연동
+  const { places, loading, error } = usePlaces();
 
 
   // 데이터 정의 - 상세페이지에 필요한 모든 정보 포함
@@ -213,13 +216,19 @@ const Home = () => {
         <SectionTitle title="최애 장소 기반 추천" subtitle="00님의 최근 데이터를 바탕으로 좋아하실 곳을 뽑아봤어요!"/>
 
         {/* 가로 스크롤 카드 (카드 너비 150 / 높이 170) */}
-        <PlaceCards 
-          places={favoriteData}
-          variant="default"
-          layout="scroll"
-          className="mt-3"
-          onLikeToggle={openPickerForPlace}
-        />
+        {loading ? (
+          <div className="mt-3 flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          </div>
+        ) : (
+          <PlaceCards 
+            places={places.slice(0, 6)} // 최대 6개 표시
+            variant="default"
+            layout="scroll"
+            className="mt-3"
+            onLikeToggle={openPickerForPlace}
+          />
+        )}
 
         {/* 오늘의 추천 */}
         <SectionTitle className='mt-6' title="오늘의 추천"/>
@@ -231,13 +240,26 @@ const Home = () => {
         />
 
         {/* 3열 카드 그리드 (칸 간격 12px) */}
-        <PlaceCards 
-          places={todayData} 
-          variant="compact"
-          layout="grid"
-          className="mt-3"
-          onLikeToggle={openPickerForPlace}
-        />
+        {loading ? (
+          <div className="mt-3 flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          </div>
+        ) : (
+          <PlaceCards 
+            places={places.slice(6, 12)} // 다음 6개 표시
+            variant="compact"
+            layout="grid"
+            className="mt-3"
+            onLikeToggle={openPickerForPlace}
+          />
+        )}
+
+        {/* 백엔드 연결 에러 표시 */}
+        {error && (
+          <div className="mt-4 p-3 bg-yellow-100 border border-yellow-400 text-yellow-800 rounded-lg text-sm">
+            {error}
+          </div>
+        )}
       
       {/* Favorites picker and add modal */}
       <FavoritesPickerSheet

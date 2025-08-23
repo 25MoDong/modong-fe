@@ -22,7 +22,7 @@ const LoadingAnimation = ({ size = 'w-16 h-16', className = '' }) => {
           blinkCount = 0;
           frameIndex = 0;
           animateEyes();
-        }, 1500); // 1.5초 대기 후 다시 시작
+        }, 1000); // 1초 대기 후 다시 시작
         return;
       }
 

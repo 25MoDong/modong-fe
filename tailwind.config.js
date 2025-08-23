@@ -23,11 +23,11 @@ export default {
         'char-wave-maeng':
           'charWave 0.15s ease-out var(--delay) forwards, maengHighlight 0.5s ease-out 1.5s forwards',
         'sentence-up': 'sentenceUp 0.65s ease-out 2.0s forwards',
-        'fadeIn': 'fadeIn 0.5s ease-out forwards',
+        fadeIn: 'fadeIn 0.5s ease-out forwards',
         'slide-up': 'slideUp 0.3s ease-out',
         // 새로운 애니메이션들
-        'drop-dot': 'dropDot 0.8s ease-in-out var(--drop-delay) forwards',
-        'char-squash': 'charSquash 0.8s ease-in-out var(--drop-delay) forwards',
+        'drop-dot': 'dropDot 1.2s ease-in-out var(--drop-delay) forwards',
+        'char-squash': 'charSquash 1.2s ease-in-out var(--char-delay) forwards',
         'stone-to-gem': 'stoneToGem 1.5s ease-in-out forwards',
       },
       keyframes: {
@@ -35,45 +35,56 @@ export default {
           '0%': { transform: 'translateY(20px)', opacity: '1' },
           '100%': { transform: 'translateY(0px)', opacity: '1' },
         },
-        // 회색 점이 떨어지는 애니메이션
+        // 회색 점이 떨어지는 애니메이션 (떨어지고 튀어오르는 효과)
         dropDot: {
-          '0%': { 
-            transform: 'translateX(-50%) translateY(-20px)', 
-            opacity: '1' 
+          '0%': {
+            transform: 'translateX(-50%) translateY(-20px)',
+            opacity: '1',
           },
-          '40%': { 
-            transform: 'translateX(-50%) translateY(5px)', 
-            opacity: '1' 
+          '30%': {
+            transform: 'translateX(-50%) translateY(-10px)',
+            opacity: '1',
           },
-          '50%': { 
-            transform: 'translateX(-50%) translateY(5px)', 
-            opacity: '1' 
+          '45%': {
+            transform: 'translateX(-50%) translateY(15px)',
+            opacity: '1',
           },
-          '70%': { 
-            transform: 'translateX(-50%) translateY(-15px)', 
-            opacity: '1' 
+          '50%': {
+            transform: 'translateX(-50%) translateY(18px)',
+            opacity: '1',
           },
-          '100%': { 
-            transform: 'translateX(-50%) translateY(-20px)', 
-            opacity: '0' 
+          '60%': {
+            transform: 'translateX(-50%) translateY(-3px)',
+            opacity: '1',
+          },
+          '75%': {
+            transform: 'translateX(-50%) translateY(8px)',
+            opacity: '0.7',
+          },
+          '100%': {
+            transform: 'translateX(-50%) translateY(-20px)',
+            opacity: '0',
           },
         },
         // 글자가 눌려서 찌그러지고 복구되는 애니메이션
         charSquash: {
-          '0%': { 
-            transform: 'scaleX(1) scaleY(1)', 
+          '0%': {
+            transform: 'scaleX(1) scaleY(1)',
           },
-          '40%': { 
-            transform: 'scaleX(1.3) scaleY(0.7)', 
+          '45%': {
+            transform: 'scaleX(1.3) scaleY(0.7)',
           },
-          '50%': { 
-            transform: 'scaleX(1.3) scaleY(0.7)', 
+          '50%': {
+            transform: 'scaleX(1.3) scaleY(0.7)',
           },
-          '70%': { 
-            transform: 'scaleX(0.9) scaleY(1.1)', 
+          '60%': {
+            transform: 'scaleX(0.9) scaleY(1.1)',
           },
-          '100%': { 
-            transform: 'scaleX(1) scaleY(1)', 
+          '75%': {
+            transform: 'scaleX(1.05) scaleY(0.95)',
+          },
+          '100%': {
+            transform: 'scaleX(1) scaleY(1)',
           },
         },
         sentenceUp: {
@@ -82,13 +93,13 @@ export default {
         },
         dolHighlight: {
           '0%': { transform: 'scale(1)', color: '#869EFF' },
-          '50%': { transform: 'scale(1.1)', color: '#5C7CFF' },
-          '100%': { transform: 'scale(1)', color: '#5C7CFF' },
+          '50%': { transform: 'scale(1.1)', color: '#E07A91' },
+          '100%': { transform: 'scale(1)', color: '#E07A91' },
         },
         maengHighlight: {
           '0%': { transform: 'scale(1)', color: '#869EFF' },
-          '50%': { transform: 'scale(1.1)', color: '#5C7CFF' },
-          '100%': { transform: 'scale(1)', color: '#5C7CFF' },
+          '50%': { transform: 'scale(1.1)', color: '#E07A91' },
+          '100%': { transform: 'scale(1)', color: '#E07A91' },
         },
         fadeIn: {
           '0%': { opacity: '0', transform: 'translateY(10px)' },
@@ -99,25 +110,25 @@ export default {
           '100%': { transform: 'translateY(0)' },
         },
         stoneToGem: {
-          '0%': { 
+          '0%': {
             transform: 'rotate(0deg) scale(1)',
             background: 'linear-gradient(135deg, #9CA3AF, #6B7280)',
-            borderRadius: '50%'
+            borderRadius: '50%',
           },
-          '30%': { 
+          '30%': {
             transform: 'rotate(180deg) scale(1.1)',
-            borderRadius: '30%'
+            borderRadius: '30%',
           },
-          '60%': { 
+          '60%': {
             transform: 'rotate(315deg) scale(0.9)',
-            borderRadius: '15%'
+            borderRadius: '15%',
           },
-          '100%': { 
+          '100%': {
             transform: 'rotate(45deg) scale(1)',
             background: 'linear-gradient(135deg, #3B82F6, #1D4ED8, #1E40AF)',
             borderRadius: '10px',
-            boxShadow: '0 10px 30px rgba(59, 130, 246, 0.4)'
-          }
+            boxShadow: '0 10px 30px rgba(59, 130, 246, 0.4)',
+          },
         },
       },
       screens: {
@@ -165,8 +176,8 @@ export default {
         'card-hover': '0 8px 24px rgba(0,0,0,0.12)',
       },
       spacing: {
-        '18': '4.5rem',
-        '22': '5.5rem',
+        18: '4.5rem',
+        22: '5.5rem',
         'safe-bottom': 'env(safe-area-inset-bottom)',
       },
     },

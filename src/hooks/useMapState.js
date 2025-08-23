@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { MAP_CONFIG } from '../lib/constants';
-import { dummyPlaces } from '../lib/dummyData';
+import { usePlaces } from './usePlaces';
 import { getBoundsFromViewport, isInBounds, calculateOptimalCenter } from '../lib/mapUtils';
 
 /**
@@ -14,8 +14,9 @@ export const useMapState = () => {
   });
 
   const [selectedPlace, setSelectedPlace] = useState(null);
-  const [places] = useState(dummyPlaces); // In real app, this would come from API
-  const [loading, setLoading] = useState(false);
+  
+  // Use places hook for backend integration
+  const { places, loading: placesLoading, error: placesError, refreshPlaces } = usePlaces();
   const [filters, setFilters] = useState({
     categories: [],
     priceRange: [],
@@ -147,7 +148,8 @@ export const useMapState = () => {
     viewport,
     selectedPlace,
     places: filteredPlaces,
-    loading,
+    loading: placesLoading,
+    error: placesError,
     filters,
     showFilters,
     showPlacesList,
@@ -164,6 +166,6 @@ export const useMapState = () => {
     zoomIn,
     zoomOut,
     resetView,
-    setLoading
+    refreshPlaces
   };
 };

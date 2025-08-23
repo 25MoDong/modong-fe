@@ -8,6 +8,7 @@ import AddCollectionModal from '../components/favorites/AddCollectionModal.jsx';
 import {
   loadCollections, loadMapping, saveMapping, addCollection, recountCollectionCounts, savePlace
 } from '../lib/favoritesStorage.js';
+import { searchStores, getAllStores } from '../lib/storeApi';
 import { dummyPlaces } from "../lib/dummyData";
 
 const RECENT_SEARCHES_KEY = 'modong_recent_searches';
@@ -58,87 +59,21 @@ const Search = () => {
 
   const handleSearch = useCallback(async (query) => {
     setSearchQuery(query);
-    
-    if (!query.trim()) {
-      setSearchResults([]);
-      return;
-    }
-
-    // Save to recent searches
+    if (!query.trim()) { setSearchResults([]); return; }
     saveRecentSearch(query);
-
     setIsLoading(true);
     try {
-      // Simulate API call - replace with actual search logic
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Search in actual dummy data first
-      const searchResults = dummyPlaces.filter(place => 
-        place.name.toLowerCase().includes(query.toLowerCase()) ||
-        place.category.toLowerCase().includes(query.toLowerCase()) ||
-        place.address.full.toLowerCase().includes(query.toLowerCase())
-      );
-
-      // If no exact matches found, use mock data for demo
-      if (searchResults.length === 0) {
-        // Check if query matches any common categories for related suggestions
-        const hasRelatedPlaces = dummyPlaces.some(place => 
-          place.category.includes(query.toLowerCase()) ||
-          place.tags?.some(tag => tag.includes(query.toLowerCase()))
-        );
-        
-        if (!hasRelatedPlaces) {
-          // No results and no related places - will show tag-based suggestions
-          setSearchResults([]);
-        } else {
-          // Mock results for demo
-          const mockResults = [
-            { 
-              id: 1, 
-              name: `${query}에 대한 검색 결과 1`, 
-              address: '서울시 강남구',
-              type: 'place',
-              category: 'cafe',
-              rating: { average: 4.5, count: 120 },
-              coordinates: { lat: 37.5665, lng: 126.9780 }
-            },
-            { 
-              id: 2, 
-              name: `${query}에 대한 검색 결과 2`, 
-              address: '서울시 서초구',
-              type: 'place',
-              category: 'restaurant',
-              rating: { average: 4.2, count: 85 },
-              coordinates: { lat: 37.5670, lng: 126.9785 }
-            }
-          ];
-          setSearchResults(mockResults);
-          
-          // Navigate to map with mock results
-          navigate('/map', {
-            state: {
-              searchResults: mockResults,
-              selectedResult: mockResults[0]
-            }
-          });
-        }
+      const results = await backend.searchStores(query);
+      if (!results || results.length === 0) {
+        setSearchResults([]);
       } else {
-        setSearchResults(searchResults);
-        
-        // If results found, automatically navigate to map with results
-        navigate('/map', {
-          state: {
-            searchResults: searchResults,
-            selectedResult: searchResults[0] // Select first result by default
-          }
-        });
+        setSearchResults(results);
+        navigate('/map', { state: { searchResults: results, selectedResult: results[0] } });
       }
-    } catch (error) {
-      console.error('Search error:', error);
+    } catch (err) {
+      console.error('Search error', err);
       setSearchResults([]);
-    } finally {
-      setIsLoading(false);
-    }
+    } finally { setIsLoading(false); }
   }, [navigate, saveRecentSearch]);
 
   // Handle selecting a search result

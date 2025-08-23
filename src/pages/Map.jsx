@@ -23,6 +23,8 @@ const MapPage = () => {
     viewport,
     selectedPlace,
     places,
+    loading,
+    error,
     filters,
     showFilters,
     updateViewport,
@@ -32,7 +34,8 @@ const MapPage = () => {
     setShowFilters,
     zoomIn,
     zoomOut,
-    resetView
+    resetView,
+    refreshPlaces
   } = useMapState();
 
   // Use new search modal state management hook
@@ -274,8 +277,35 @@ const MapPage = () => {
     };
   }, []);
 
+  // Show loading state while fetching places
+  if (loading) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">가게 정보를 불러오는 중...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full h-full mx-auto relative overflow-hidden flex flex-col">
+      {/* Error notification */}
+      {error && (
+        <div className="absolute top-20 left-4 right-4 z-50 bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-3 rounded-lg shadow-lg">
+          <div className="flex items-center justify-between">
+            <span className="text-sm">{error}</span>
+            <button 
+              onClick={refreshPlaces}
+              className="ml-2 bg-yellow-200 hover:bg-yellow-300 px-2 py-1 rounded text-xs font-medium transition-colors"
+            >
+              재시도
+            </button>
+          </div>
+        </div>
+      )}
+      
       {/* Map container - fills entire available space */}
       <div className='relative w-full flex-1'>
         {/* Kakao Map */}
