@@ -1,59 +1,46 @@
 import { useState, useEffect } from 'react';
-
-const users = [
-  {
-    id: 'feellikemang',
-    name: '느좋돌맹이',
-    preferences: {
-      atmosphere: ['분위기 있는', '기념일에 가기 좋은'],
-      taste: ['디저트가 맛있는', '음료가 달달한'],
-    },
-  },
-  {
-    id: 'alcoholmang',
-    name: '술좋아돌맹이',
-    preferences: {
-      atmosphere: ['옛날 감성', '가성비 좋은'],
-      taste: ['안주가 맛있는', '술 종류가 다양한'],
-    },
-  },
-];
+import backend from '../../lib/backend';
 
 const TestUserSelect = ({ onComplete }) => {
-  
-
+  const [users, setUsers] = useState([]);
   const [userTags, setUserTags] = useState({});
 
-  const getDisplayTags = (preferences, maxCount = 3) => {
-    let allSelectedTags = [];
-    // 코드를 조금 최적화할 수 있을 것 같은데... api를 받고나서 고민해보자.
-    // 객체를 [key, value]의 형태로 forEach 실행
-    Object.values(preferences).forEach(tags => {
-      const pickCount = Math.random() < 0.2 ? 1 : 2;
-      // 음수면 순서가 바뀌고, 양수면 그대로
-      const suffled = [...tags].sort(() => Math.random() - 0.5);
-      const picked = suffled.slice(0, Math.min(pickCount, tags.length));
-
-      allSelectedTags.push(...picked);
-    });
-
-    return allSelectedTags.slice(0, maxCount).map(tag => `# ${tag}`);
-  };
   const handleUserSelect = user => {
-    setTimeout(() => {
+    setTimeout(async () => {
+      // persist selected user id and notify listeners
+      try {
+        const userModule = (await import('../../lib/userStore')).default;
+        await userModule.setUser(user);
+      } catch (e) {}
+      // mark onboarding completed so AppInitializer can proceed
+      try { localStorage.setItem('onboarding_completed', '1'); } catch (e) {}
+      window.dispatchEvent(new Event('OnboardingCompleted'));
       onComplete(user);
     }, 250);
   };
 
   useEffect(() => {
-    const tags = {};
-    users.forEach(user => {
-      tags[user.id] = getDisplayTags(user.preferences, 3);
-    });
-    setUserTags(tags);
+    let mounted = true;
+    const load = async () => {
+      try {
+        const list = await backend.getAllUsers();
+        if (!mounted) return;
+        setUsers(list || []);
+        const tags = {};
+        (list || []).forEach(u => {
+          tags[u.id] = Array.isArray(u.userMood) ? u.userMood.slice(0, 4).map(t => `# ${t}`) : [];
+        });
+        setUserTags(tags);
+      } catch (err) {
+        console.error('Failed to load users', err);
+      }
+    };
+    load();
+    return () => { mounted = false; };
   }, []);
 
   return (
+
     <div className="w-full h-full relative bg-white px-3 py-4 flex flex-col items-center justify-center whitespace-nowrap transform -translate-y-12 ">
       <h1 className="text-2xl font-bold text-center mb-12">
         테스트 유저를 선택해주세요

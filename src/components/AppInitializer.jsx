@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react"
+import { useLocation, useNavigate } from 'react-router-dom';
 import Loading from "./Onboarding/Loading";
 import PlaceAddModal from "./modals/PlaceAddModal";
+import backend from '../lib/backend';
+import userStore from '../lib/userStore';
 
 const AppInitializer = ({ children }) => {
     const [showLoading, setShowLoading] = useState(false);
@@ -20,16 +23,28 @@ const AppInitializer = ({ children }) => {
       setIsInitialized(true);
     }, [isInitialized]);
 
+    const navigate = useNavigate();
+    const location = useLocation();
+
     const handleLoadingComplete = () => {
       setShowLoading(false);
     };
 
-    // 앱 초기화 완료 후 모달 표시 로직
+    // If onboarding not completed, force redirect to home for any non-home route
+    useEffect(() => {
+      if (!isInitialized) return;
+      const onboardingCompleted = !!localStorage.getItem('onboarding_completed');
+      if (!onboardingCompleted && location.pathname !== '/') {
+        navigate('/', { replace: true });
+      }
+    }, [isInitialized, location.pathname, navigate]);
+
+   // 앱 초기화 완료 후 모달 표시 로직
     useEffect(() => {
       if (showLoading || !isInitialized) return;
 
-      const checkModalVisibility = () => {
-        const hideUntil = localStorage.getItem('hide_place_modal_until');
+    const checkModalVisibility = () => {
+      const hideUntil = localStorage.getItem('hide_place_modal_until');
         
         if (hideUntil) {
           const hideUntilDate = new Date(hideUntil);
@@ -44,6 +59,10 @@ const AppInitializer = ({ children }) => {
           }
         }
 
+        // Only show the place modal for users who completed onboarding
+        const onboardingCompleted = !!localStorage.getItem('onboarding_completed');
+        if (!onboardingCompleted) return; // do not show modal during onboarding
+
         // 앱 초기화 완료 후 1초 뒤에 모달 표시 (하루에 여러 번 가능)
         const timer = setTimeout(() => {
           setShowPlaceModal(true);
@@ -55,6 +74,46 @@ const AppInitializer = ({ children }) => {
       checkModalVisibility();
     }, [showLoading, isInitialized]);
 
+    // Listen for onboarding completion so we can show the place modal
+    useEffect(() => {
+      const handler = () => {
+        const hideUntil = localStorage.getItem('hide_place_modal_until');
+        if (hideUntil) {
+          const hideUntilDate = new Date(hideUntil);
+          const now = new Date();
+          if (now < hideUntilDate) return;
+          localStorage.removeItem('hide_place_modal_until');
+        }
+
+        const onboardingCompleted = !!localStorage.getItem('onboarding_completed');
+        if (!onboardingCompleted) return;
+
+        // small delay to let navigation/render settle
+        setTimeout(() => setShowPlaceModal(true), 1000);
+      };
+
+      window.addEventListener('OnboardingCompleted', handler);
+      return () => window.removeEventListener('OnboardingCompleted', handler);
+    }, []);
+
+
+    // Load selected user from storage and hydrate userStore
+    useEffect(() => {
+      let mounted = true;
+      const loadUser = async () => {
+        const uid = userStore.getUserId();
+        if (!uid) return;
+        try {
+          const u = await backend.getUserById(uid);
+          if (!mounted) return;
+          await userStore.setUser(u);
+        } catch (e) {
+          console.error('Failed to hydrate selected user', e);
+        }
+      };
+      loadUser();
+      return () => { mounted = false; };
+    }, []);
     if (!isInitialized || showLoading) {
       return <Loading onComplete={handleLoadingComplete} />;
     }

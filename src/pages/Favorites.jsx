@@ -7,21 +7,33 @@ import AddCollectionModal from "../components/favorites/AddCollectionModal";
 import CollectionDetail from "../components/favorites/CollectionDetail";
 import { dummyPlaces } from '../lib/dummyData';
 
-// storage 유틸 불러오기 (이름 겹치지 않도록 alias)
+// 기존 로컬 저장소 함수들 (백업용)
+import {
+  loadCollections as loadLocalCollections,
+  recountCollectionCounts as recountLocalCounts,
+  togglePlaceInCollection as toggleLocalPlace,
+  addCollection as addLocalCollection,
+  deleteCollection as deleteLocalCollection,
+  loadMapping as loadLocalMapping,
+  loadPlace,
+  removePlaceFromCollection as removeLocalPlace,
+} from "../lib/favoritesStorage";
+
+// 새로운 API 연동 함수들
 import {
   loadCollections,
-  recountCollectionCounts,
-  togglePlaceInCollection,
-  addCollection as addCollectionStorage,
-  deleteCollection,
   loadMapping,
-  loadPlace,
-  removePlaceFromCollection,
-} from "../lib/favoritesStorage";
+  addCollection,
+  deleteCollection,
+  recountCollectionCounts,
+  getCollectionPlaces,
+  togglePlaceInCollection,
+  removePlaceFromCollection
+} from '../lib/favoritesApi.js';
 
 
 export default function Favorites() {
-  const [collections, setCollections] = useState(() => recountCollectionCounts());
+  const [collections, setCollections] = useState([]);
   const [openAdd, setOpenAdd] = useState(false);
   const [pendingPlaceId, setPendingPlaceId] = useState(null); // 상세에서 넘어온 placeId
   const [isEditMode, setIsEditMode] = useState(false); // 편집 모드 상태
@@ -43,19 +55,42 @@ export default function Favorites() {
     }
   }, [searchParams]);
 
-  // 초기에 localStorage 동기화(혹시 모를 mismatch 보정)
+  // 컴포넌트 마운트 시 API에서 컬렉션 로드
   useEffect(() => {
-    setCollections(recountCollectionCounts());
+    const initializeCollections = async () => {
+      try {
+        const apiCollections = await loadCollections();
+        setCollections(apiCollections);
+      } catch (error) {
+        console.error('Failed to load collections from API:', error);
+        // API 실패 시 로컬 저장소 사용
+        const localCollections = await recountLocalCounts();
+        setCollections(localCollections);
+      }
+    };
+
+    initializeCollections();
   }, []);
 
+
   // 새 보석함 생성 + (옵션) 해당 place 자동 추가
-  const handleAddCollection = ({ title, description }) => {
-    const created = addCollectionStorage({ title, description }); // 로컬에 생성
-    // Do not auto-add pending place. Keep behavior consistent: user must select and save explicitly.
-    setCollections(recountCollectionCounts());                   // 카운트 갱신
-    setOpenAdd(false);
-    setPendingPlaceId(null);
-    navigate("/favorites", { replace: true });                   // 쿼리 제거 (새로고침해도 모달 안뜸)
+  const handleAddCollection = async ({ title, description }) => {
+    try {
+      const created = await addCollection(title, description);
+      const updatedCollections = await loadCollections();
+      setCollections(updatedCollections);
+      setOpenAdd(false);
+      setPendingPlaceId(null);
+      navigate("/favorites", { replace: true });
+    } catch (error) {
+      console.error('Failed to add collection:', error);
+      // API 실패 시 로컬 저장소 사용
+      const created = addLocalCollection({ title, description });
+      setCollections(await recountLocalCounts());
+      setOpenAdd(false);
+      setPendingPlaceId(null);
+      navigate("/favorites", { replace: true });
+    }
   };
 
   // 편집 모드 토글

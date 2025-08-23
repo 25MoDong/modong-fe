@@ -2,37 +2,62 @@ import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Bookmark, Edit3, FileText, Tag } from 'lucide-react';
+import { loadMapping, loadPlace } from '../lib/favoritesStorage';
+import { dummyPlaces } from '../lib/dummyData';
 
-const STORAGE_KEY = 'modong_saved_places_v1';
-
-const sampleSaved = [
-  { id: 1, name: '메롱메롱카페', distance: '300m 이내', hours: '10:00 - 17:00' },
-  { id: 2, name: '돌멩이 베이커리', distance: '450m', hours: '09:00 - 19:00' },
-  { id: 3, name: '진지한 돌멩이', distance: '1.2km', hours: '11:00 - 20:00' },
-];
-
-function useLocalSaved() {
+// hook for places added via PlaceAddModal (key: favorite_places)
+function usePlaceAddSaved() {
   const [saved, setSaved] = useState(() => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? JSON.parse(raw) : sampleSaved;
+      const raw = localStorage.getItem('favorite_places');
+      return raw ? JSON.parse(raw) : [];
     } catch (e) {
-      return sampleSaved;
+      return [];
     }
   });
 
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+      localStorage.setItem('favorite_places', JSON.stringify(saved));
     } catch (e) {}
   }, [saved]);
+
+  // listen to storage events from other tabs/windows and focus to resync
+  useEffect(() => {
+    function handleStorage(e) {
+      if (e.key === 'favorite_places') {
+        try {
+          setSaved(e.newValue ? JSON.parse(e.newValue) : []);
+        } catch (err) {
+          setSaved([]);
+        }
+      }
+    }
+
+    function handleFocus() {
+      try {
+        const raw = localStorage.getItem('favorite_places');
+        setSaved(raw ? JSON.parse(raw) : []);
+      } catch (err) {
+        setSaved([]);
+      }
+    }
+
+    window.addEventListener('storage', handleStorage);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, []);
 
   return [saved, setSaved];
 }
 
 export default function MyPage() {
   const navigate = useNavigate();
-  const [saved, setSaved] = useLocalSaved();
+  const [saved, setSaved] = usePlaceAddSaved();
   const [toDelete, setToDelete] = useState(null);
   const [stampCount, setStampCount] = useState(() => {
     return parseInt(localStorage.getItem('stamp_count') || '0');

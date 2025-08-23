@@ -1,0 +1,27 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowReadCloudFrontDistribution",
+      "Effect": "Allow",
+      "Action": [
+        "cloudfront:GetDistribution",
+        "cloudfront:GetDistributionConfig",
+        "cloudfront:ListDistributions"
+      ],
+      "Resource": "arn:aws:cloudfront::389590581655:distribution/EJ9HR2ARNB6X7"
+    {
+      "Sid": "AllowS3BucketPolicyOps",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetBucketPolicy",
+        "s3:PutBucketPolicy",
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::modong-prod",
+        "arn:aws:s3:::modong-prod/*"
+      ]
+    }
+  ]
+}

@@ -78,17 +78,23 @@ const PlaceAddModal = ({ isOpen, onClose }) => {
 
   // 추가하기 버튼 핸들러
   const handleAddPlace = () => {
-    if (!selectedPlace || !menuName.trim() || isSubmitting) return;
-    
+    // place name is required (either selectedPlace or typed searchTerm)
+    if ((!selectedPlace && !searchTerm.trim()) || isSubmitting) return;
+
     setIsSubmitting(true);
 
-    // 최애장소에 추가 (localStorage에 저장)
+    // Build favorite place payload. If user selected from results, use that data,
+    // otherwise fall back to typed searchTerm as name.
+    const name = selectedPlace ? selectedPlace.place_name : searchTerm.trim();
+    const address = selectedPlace ? selectedPlace.address_name : '';
+    const category = selectedPlace ? (selectedPlace.category_group_name || '기타') : '기타';
+
     const favoritePlace = {
       id: Date.now(),
-      name: selectedPlace.place_name,
-      address: selectedPlace.address_name,
-      menu: menuName.trim(),
-      category: selectedPlace.category_group_name || '기타',
+      name,
+      address,
+      menu: menuName.trim() || '',
+      category,
       addedAt: new Date().toISOString()
     };
 
@@ -168,20 +174,22 @@ const PlaceAddModal = ({ isOpen, onClose }) => {
             <X size={24} color="#6A6A6A" />
           </button>
 
-          {/* 제목 */}
+          {/* 제목 (가운데 정렬) */}
           <div style={{
             position: 'absolute',
-            width: '246px',
-            height: '34px',
-            left: '46px',
+            left: '50%',
+            transform: 'translateX(-50%)',
             top: '40px',
             fontFamily: 'Pretendard',
             fontWeight: 700,
             fontSize: '14px',
             lineHeight: '17px',
-            color: '#000000'
+            color: '#000000',
+            textAlign: 'center'
           }}>
-            최근에 갔던 장소 중에 저장하고 싶은 장소가 있나요?
+            최근에 방문한 장소 중에
+            <br />
+            저장하고 싶은 장소가 있나요?
           </div>
 
           {/* 장소 검색 입력창 */}
@@ -345,17 +353,17 @@ const PlaceAddModal = ({ isOpen, onClose }) => {
           {/* 추가하기 버튼 */}
           <button
             onClick={handleAddPlace}
-            disabled={!selectedPlace || !menuName.trim() || isSubmitting}
+            disabled={!searchTerm.trim() || isSubmitting}
             style={{
               position: 'absolute',
               width: '115px',
               height: '29px',
               right: '49px',
               bottom: '28px',
-              background: selectedPlace && menuName.trim() && !isSubmitting ? '#6A6F82' : '#D9D9D9',
+              background: (!searchTerm.trim() || isSubmitting) ? '#D9D9D9' : '#6A6F82',
               borderRadius: '10px',
-              border: `1px solid ${selectedPlace && menuName.trim() && !isSubmitting ? '#6A6F82' : '#D9D9D9'}`,
-              cursor: selectedPlace && menuName.trim() && !isSubmitting ? 'pointer' : 'not-allowed',
+              border: `1px solid ${!searchTerm.trim() || isSubmitting ? '#D9D9D9' : '#6A6F82'}`,
+              cursor: !searchTerm.trim() || isSubmitting ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',

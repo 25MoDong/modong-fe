@@ -5,15 +5,20 @@ const Loading = ({ onComplete }) => {
   const [animationPhase, setAnimationPhase] = useState('first'); // 'first', 'second'
   
   useEffect(() => {
-    // 첫 번째 애니메이션 완료 후 두 번째 애니메이션 시작 (더 늦게 시작)
+    // sentenceUp timing in tailwind: delay 2.0s, duration 0.65s
+    const SENTENCE_UP_DELAY = 2.0; // seconds
+    const SENTENCE_UP_DURATION = 0.65; // seconds
+    const secondPhaseStartMs = Math.round((SENTENCE_UP_DELAY + SENTENCE_UP_DURATION) * 1000);
+
+    // 두 번째 페이즈는 sentenceUp이 끝난 직후 시작
     const firstPhaseTimer = setTimeout(() => {
       setAnimationPhase('second');
-    }, 4000);
-    
-    // 전체 애니메이션 완료 (찌그러지는 애니메이션을 충분히 볼 시간 확보)
+    }, secondPhaseStartMs);
+
+    // 전체 애니메이션 완료 타이밍: 두 번째 페이즈 시작 + 여유 (약 3초)
     const totalAnimationTimer = setTimeout(() => {
       onComplete();
-    }, 11000);
+    }, secondPhaseStartMs + 3000);
 
     return () => {
       clearTimeout(firstPhaseTimer);
@@ -24,11 +29,20 @@ const Loading = ({ onComplete }) => {
   const text = '돌아다니면서 맹글어보는';
 
   return (
-    <div className="relative w-full h-screen bg-white">
+    <div className="relative w-full h-screen bg-secondary-500">
+      
+  <style>{`@font-face {
+    font-family: 'KCC-Hanbit';
+    src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/2403-2@1.0/KCC-Hanbit.woff2') format('woff2');
+    font-weight: normal;
+    font-style: normal;
+  }
+  .kcc-hanbit { font-family: 'KCC-Hanbit', sans-serif; }`}</style>
+
       {/* 중앙 컨테이너 - 아이콘과 텍스트 */}
       <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
         {/* 돌맹이 애니메이션 - 즉시 시작 */}
-        <div className="relative">
+        <div className="relative mb-4">
           <LoadingAnimation 
             size="w-[89px] h-[75px]"
           />
@@ -36,8 +50,8 @@ const Loading = ({ onComplete }) => {
 
         {/* 텍스트 - 두 단계 애니메이션 */}
         <div className="flex flex-col items-center justify-center whitespace-nowrap">
-          <p className='text-3xl font-bold mb-2'>돌맹돌맹</p>
-          <div className="text-xl font-medium mb-2 relative">
+          <p className='text-3xl font-bold mb-6 kcc-hanbit'>돌맹돌맹</p>
+          <div className="text-xl font-medium relative">
             {text.split('').map((char, index) => {
               const isFirstPhase = animationPhase === 'first';
               const isSecondPhase = animationPhase === 'second';
@@ -52,18 +66,14 @@ const Loading = ({ onComplete }) => {
                 firstAnimationClass = 'animate-char-wave';
               }
               
-              // 두 번째 애니메이션 클래스 - '돌'과 '맹'에만 찌그러짐 효과만 적용 (char-wave 없음)
               let secondAnimationClass = '';
               let characterColor = '';
-              if (isSecondPhase) {
-                if (char === '돌') {
-                  secondAnimationClass = 'animate-char-squash';
-                  characterColor = 'text-[#5C7CFF]'; // 돌 하이라이트 색상 유지
-                } else if (char === '맹') {
-                  secondAnimationClass = 'animate-char-squash';
-                  characterColor = 'text-[#5C7CFF]'; // 맹 하이라이트 색상 유지
-                }
-                // 일반 글자들은 기존 색상 유지, 추가 애니메이션 없음
+              if (char === '돌') {
+                secondAnimationClass = 'animate-char-squash';
+                characterColor = 'text-[#E07A91]'; 
+              } else if (char === '맹') {
+                secondAnimationClass = 'animate-char-squash';
+                characterColor = 'text-[#E07A91]'; 
               }
               
               return (
@@ -77,20 +87,20 @@ const Loading = ({ onComplete }) => {
                   `}
                   style={{
                     '--delay': `${index * 0.075}s`,
-                    '--drop-delay': `${2.4 + index * 0.1}s`,
+                    '--drop-delay': `calc(${char === '돌' ? '0s' : char === '맹' ? '0.9s' : '0s'} + ${index * 0.075}s)`,
+                    '--char-delay': `calc(${char === '돌' ? '0s' : char === '맹' ? '0.9s' : '0s'} + ${index * 0.075}s)`,
                   }}
                 >
                   {char === ' ' ? '\u00A0' : char}
                   
-                  {/* 회색 점 - '돌'과 '맹' 글자에만 표시 */}
-                  {isSecondPhase && (char === '돌' || char === '맹') && (
+                  {/* 회색 점 - 두 번째 페이즈에서만 표시하여 애니메이션 타이밍을 문자 찌그러짐과 동기화 */}
+                  {(isSecondPhase && (char === '돌' || char === '맹')) && (
                     <div
-                      className="absolute w-2 h-2 bg-gray-400 rounded-full animate-drop-dot"
+                      className="absolute w-2 h-2 bg-gray-400 rounded-full animate-drop-dot opacity-0"
                       style={{
                         top: '-15px',
                         left: '50%',
                         transformOrigin: 'center',
-                        '--drop-delay': `${2.4 + index * 0.1}s`,
                       }}
                     />
                   )}

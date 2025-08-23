@@ -1,6 +1,8 @@
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Heart, MapPin } from 'lucide-react';
 import { useRef, useMemo, useState, useEffect } from 'react';
+import api from '../lib/api';
+import backend from '../lib/backend';
 
 import BackBar from '../components/place/BackBar.jsx';
 import TagPills from '../components/common/TagPills.jsx';
@@ -53,14 +55,23 @@ export default function PlaceDetail() {
     const navPlace = location.state?.place;
     if (navPlace) {
       setPlace(navPlace);
-      // persist to cache so future visits by URL also have data
-      try { savePlace(navPlace); } catch (e) { /* ignore */ }
+      try { savePlace(navPlace); } catch (e) {}
       return;
     }
 
-    const cached = loadPlace(placeId);
-    if (cached) setPlace(cached);
-    else setPlace(null);
+    const fetchPlace = async () => {
+      const cached = loadPlace(placeId);
+      if (cached) { setPlace(cached); return; }
+      try {
+        const data = await backend.getPlaceById(placeId);
+        if (data) { setPlace(data); try { savePlace(data); } catch (e) { } } else { setPlace(null); }
+      } catch (err) {
+        console.error('Failed to fetch place details', err);
+        setPlace(null);
+      }
+    };
+
+    fetchPlace();
   }, [placeId, location.state]);
 
   const toggleSelect = (cid) =>
