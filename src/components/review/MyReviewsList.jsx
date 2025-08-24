@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import userStore from '../../lib/userStore';
 import { Star, MapPin, Calendar, MoreVertical, Edit, Trash2 } from 'lucide-react';
 import { getMyReviews, deleteReview } from '../../lib/reviewApi';
 
@@ -13,9 +14,10 @@ const MyReviewsList = () => {
     const fetchMyReviews = async () => {
       try {
         setLoading(true);
-        // 현재 사용자 ID 가져오기 (실제로는 로그인 상태에서)
-        const userId = localStorage.getItem('MODONG_USER_ID') || '1';
-        
+        // 현재 선택된 사용자 ID를 사용 (온보딩에서 선택되어 있어야 함)
+        const userId = userStore.getUserId();
+        if (!userId) throw new Error('No user selected');
+
         const response = await getMyReviews(userId);
         
         // API 응답을 컴포넌트에서 사용할 형식으로 변환
@@ -116,7 +118,11 @@ const MyReviewsList = () => {
     }
 
     try {
-      const userId = localStorage.getItem('MODONG_USER_ID') || '1';
+      const userId = userStore.getUserId();
+      if (!userId) {
+        alert('사용자가 선택되지 않았습니다.');
+        return;
+      }
       const review = reviews.find(r => r.id === reviewId);
       
       if (!review) {

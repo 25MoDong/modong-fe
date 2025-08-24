@@ -8,8 +8,8 @@ import AddCollectionModal from '../components/favorites/AddCollectionModal.jsx';
 import {
   loadCollections, loadMapping, saveMapping, addCollection, recountCollectionCounts, savePlace
 } from '../lib/favoritesStorage.js';
-import { searchStores, getAllStores } from '../lib/storeApi';
-import { dummyPlaces } from "../lib/dummyData";
+import backend from '../lib/backend';
+// suggestions will be loaded from backend stores
 
 const RECENT_SEARCHES_KEY = 'modong_recent_searches';
 
@@ -97,21 +97,29 @@ const Search = () => {
     }
   }, [navigate, fromPage, searchResults]);
 
-  // Get suggested places by tags when no search results
-  const getSuggestedPlaces = useCallback(() => {
-    if (!searchQuery || searchResults.length > 0) return {};
-    
-    // Group places by category for suggestions
-    const suggestions = {
-      cafe: dummyPlaces.filter(place => place.category === 'cafe').slice(0, 4),
-      restaurant: dummyPlaces.filter(place => place.category === 'restaurant').slice(0, 4),
-      attraction: dummyPlaces.filter(place => place.category === 'attraction').slice(0, 4)
-    };
-    
-    return suggestions;
-  }, [searchQuery, searchResults]);
+  const [suggestedPlaces, setSuggestedPlaces] = useState({});
 
-  const suggestedPlaces = getSuggestedPlaces();
+  // Load suggested places from backend when no active search query
+  useEffect(() => {
+    let mounted = true;
+    const loadSuggestions = async () => {
+      if (searchQuery || searchResults.length > 0) return;
+      try {
+        const stores = await backend.getAllStores();
+        if (!mounted || !Array.isArray(stores)) return;
+        setSuggestedPlaces({
+          cafe: stores.filter(s => (s.category || '').toLowerCase().includes('카페') || (s.category || '').toLowerCase().includes('cafe')).slice(0,4),
+          restaurant: stores.filter(s => (s.category || '').toLowerCase().includes('식당') || (s.category || '').toLowerCase().includes('restaurant')).slice(0,4),
+          attraction: stores.filter(s => (s.category || '').toLowerCase().includes('관광') || (s.category || '').toLowerCase().includes('attraction')).slice(0,4)
+        });
+      } catch (err) {
+        console.error('Failed to load suggested places from backend', err);
+        setSuggestedPlaces({});
+      }
+    };
+    loadSuggestions();
+    return () => { mounted = false; };
+  }, [searchQuery, searchResults]);
 
   // Favorites picker state (for heart button)
   const [pickerOpen, setPickerOpen] = useState(false);

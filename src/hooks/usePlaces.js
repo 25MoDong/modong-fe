@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getAllStores } from '../lib/storeApi';
-import { dummyPlaces } from '../lib/dummyData';
 
 /**
  * Custom hook for fetching and managing places data from backend
@@ -17,12 +16,10 @@ export const usePlaces = () => {
       name: store.name,
       title: store.name, // for compatibility
       category: store.category,
-      coordinates: {
-        lat: store.coordinates?.lat || 37.5665,
-        lng: store.coordinates?.lng || 126.9780
-      },
+      // Keep null when missing; we'll geocode from address.detail later
+      coordinates: store.coordinates || null,
       address: {
-        full: store.address || '서울시 강남구',
+        full: store.address || '',
         district: '강남구',
         street: store.address
       },
@@ -58,24 +55,58 @@ export const usePlaces = () => {
       if (Array.isArray(stores) && stores.length > 0) {
         // Transform store data to place format
         const transformedPlaces = stores.map(transformStoreToPlace);
+
+        // Geocode addresses lacking coords using Kakao Maps services
+        const geocoded = await maybeGeocodePlaces(transformedPlaces);
         
-        setPlaces(transformedPlaces);
-        console.log(`✅ Successfully loaded ${transformedPlaces.length} places from store API`);
+        setPlaces(geocoded);
+        console.log(`✅ Successfully loaded ${geocoded.length} places (geocoded as needed)`);
       } else {
         throw new Error('No stores data received from backend');
       }
 
     } catch (err) {
       console.warn('Failed to fetch places from backend:', err.message);
-      console.log('🔄 Falling back to dummy data for development');
-      
-      // Fallback to dummy data for development
-      setPlaces(dummyPlaces);
-      setError('백엔드 연결 실패 - 개발용 더미 데이터 사용');
+      // Do not use dummy data; surface empty state to UI
+      setPlaces([]);
+      setError('백엔드 연결 실패');
     } finally {
       setLoading(false);
     }
   }, [transformStoreToPlace]);
+
+  // Geocode any places missing coordinates using Kakao Maps Geocoder
+  const maybeGeocodePlaces = async (list) => {
+    // If Kakao SDK not loaded or no services, return as-is
+    if (!window.kakao || !window.kakao.maps || !window.kakao.maps.services) return list;
+
+    const geocoder = new window.kakao.maps.services.Geocoder();
+
+    const geocodeOne = (addr) => new Promise((resolve) => {
+      if (!addr) return resolve(null);
+      geocoder.addressSearch(addr, (result, status) => {
+        if (status === window.kakao.maps.services.Status.OK && result && result[0]) {
+          const { y, x } = result[0];
+          resolve({ lat: parseFloat(y), lng: parseFloat(x) });
+        } else {
+          resolve(null);
+        }
+      });
+    });
+
+    const out = [];
+    for (const p of list) {
+      if (p.coordinates && typeof p.coordinates.lat === 'number') {
+        out.push(p);
+        continue;
+      }
+      const coords = await geocodeOne(p.address?.full || '');
+      out.push({ ...p, coordinates: coords || { lat: 37.5665, lng: 126.9780 } });
+      // Basic throttling to be gentle with rate limits
+      await new Promise(r => setTimeout(r, 60));
+    }
+    return out;
+  };
 
   // Fetch places on mount
   useEffect(() => {

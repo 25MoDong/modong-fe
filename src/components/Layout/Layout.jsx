@@ -37,7 +37,7 @@ const LayoutContent = () => {
   }, [updateBottomTab]);
 
   return (
-    <div className="min-h-screen items-center justify-center flex select-none bg-gray-50 lg:bg-gray-100">
+    <div className="min-h-[100dvh] items-center justify-center flex select-none bg-gray-50 lg:bg-gray-100">
         {/* Desktop background image */}
         <div className="hidden h-full lg:block lg:flex-1 lg:justify-end bg-gray-100">
           <img
@@ -53,10 +53,10 @@ const LayoutContent = () => {
 
         {/* Mobile-first responsive container */}
         <div className="w-full max-w-sm sm:max-w-md lg:w-[390px] lg:max-w-[400px] lg:flex-shrink-0 mx-auto lg:mx-20">
-          <div className="bg-white w-full h-screen lg:shadow-2xl lg:rounded-lg overflow-hidden flex flex-col relative">
+          <div className="bg-white w-full h-[100dvh] lg:h-screen lg:shadow-2xl lg:rounded-lg overflow-y-auto flex flex-col relative">
             <AppInitializer>
               {/* Main content area - scrollable */}
-              <main className="flex-1 overflow-hidden">
+              <main className="flex-1 overflow-y-auto">
                 <Outlet />
               </main>
               

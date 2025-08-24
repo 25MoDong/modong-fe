@@ -15,10 +15,11 @@ export const getAllFavoriteStores = async () => {
   }
 };
 
-// 유저별 찜 목록 조회 (GET /api/v5/getUserFs)
-export const getUserFavoriteStores = async () => {
+// 유저별 찜 목록 조회 (GET /api/v5/getUserFs?userId=...)
+export const getUserFavoriteStores = async (userId) => {
   try {
-    const response = await api.get('/api/v5/getUserFs');
+    if (!userId) throw new Error('userId is required for getUserFavoriteStores');
+    const response = await api.get(`/api/v5/getUserFs?userId=${encodeURIComponent(userId)}`);
     return response.data;
   } catch (error) {
     console.error('Failed to fetch user favorite stores:', error);

@@ -15,7 +15,7 @@ export const getMyReviews = async (userId) => {
   }
 };
 
-// 후기 작성 (POST /api/v2/creatReview)
+// 후기 작성 (POST /api/v2/createReview)
 export const createReview = async (reviewData) => {
   try {
     const requestBody = {
@@ -25,8 +25,21 @@ export const createReview = async (reviewData) => {
       // Swagger에 따라 추가 필드들 매핑
     };
 
-    const response = await api.post('/api/v2/creatReview', requestBody);
-    return response.data;
+    // Some backend deployments/documentation contain a historical typo
+    // (`/api/v2/creatReview`). Try the correct route first and fall back
+    // to the documented/legacy typo route if the server responds 404.
+    try {
+      const response = await api.post('/api/v2/createReview', requestBody);
+      return response.data;
+    } catch (err) {
+      // If backend only exposes the misspelled route, try it as a fallback.
+      if (err && err.status === 404) {
+        console.warn("Primary review endpoint returned 404, trying legacy '/api/v2/creatReview' route");
+        const fallback = await api.post('/api/v2/creatReview', requestBody);
+        return fallback.data;
+      }
+      throw err;
+    }
   } catch (error) {
     console.error('Failed to create review:', error);
     throw error;

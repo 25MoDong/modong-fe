@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import backend from '../../lib/backend';
+import { FilterTag } from '../common/FilterTags';
 
 const TestUserSelect = ({ onComplete }) => {
   const [users, setUsers] = useState([]);
@@ -7,14 +8,12 @@ const TestUserSelect = ({ onComplete }) => {
 
   const handleUserSelect = user => {
     setTimeout(async () => {
-      // persist selected user id and notify listeners
+      // persist selected user id
       try {
         const userModule = (await import('../../lib/userStore')).default;
         await userModule.setUser(user);
       } catch (e) {}
-      // mark onboarding completed so AppInitializer can proceed
-      try { localStorage.setItem('onboarding_completed', '1'); } catch (e) {}
-      window.dispatchEvent(new Event('OnboardingCompleted'));
+      // 온보딩 완료는 UserReWriting 단계 완료 후에 처리
       onComplete(user);
     }, 250);
   };
@@ -40,50 +39,45 @@ const TestUserSelect = ({ onComplete }) => {
   }, []);
 
   return (
-
-    <div className="w-full h-full relative bg-white px-3 py-4 flex flex-col items-center justify-center whitespace-nowrap transform -translate-y-12 ">
-      <h1 className="text-2xl font-bold text-center mb-12">
-        테스트 유저를 선택해주세요
+    <div className="w-full h-full relative bg-white px-4 py-8 flex flex-col items-center justify-center">
+      <h1 className="text-center text-black font-semibold text-2xl leading-7 mb-16">
+        카테고리가 미리 선택된<br />
+        테스트유저를 선택해 주세요
       </h1>
 
-      <div className="flex max-w-full gap-4 mb-12">
-        {users.map(user => {
-          return (
-            <div
-              key={user.id}
-              onClick={() => handleUserSelect(user)}
-              className="relative bg-white rounded-2xl p-6 cursor-pointer shadow-gray-500 shadow-md duration-200 ease-out transition-all active:scale-95 active:ring-4 active:ring-primary-500 w-64 h-80"
-            >
-              {/* 프로필 이미지 */}
-              <div className="rounded-full mx-auto mb-4 flex items-center justify-center">
-                <img
-                  src="/images/dolmaeng.png"
-                  alt="돌맹 프로필 이미지"
-                  className="w-32 h-auto object-contain object-center"
-                  draggable="false"
-                  style={{
-                    WebkitUserDrag: 'none',
-                  }}
-                />
-              </div>
-              {/* 이름 */}
-              <h3 className="text-lg font-bold text-center mb-4">
-                {user.name}
-              </h3>
-              {/* 태그 */}
-              <div className="flex flex-col items-center gap-2">
-                {userTags[user.id]?.map((tag, index) => (
-                  <div
-                    key={index}
-                    className="bg-primary-500 rounded-lg text-secondary-500 text-center text-sm w-fit px-2 py-1"
-                  >
-                    {tag}
-                  </div>
-                ))}
-              </div>
+      <div className="flex flex-col gap-6 w-full max-w-sm">
+        {users.slice(0, 2).map((user, userIndex) => (
+          <div
+            key={user.id}
+            onClick={() => handleUserSelect(user)}
+          className="relative w-full h-[184px] bg-secondary-600 border border-[#212842] rounded-[10px] cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+          >
+            {/* 프로필 이미지 */}
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 w-[119px] h-[118px] bg-white border border-[rgba(60,68,98,0.25)] shadow-[0px_0px_6.1px_1px_rgba(0,0,0,0.13)] rounded-[10px] flex items-center justify-center">
+              <img
+                src="/images/dolmaeng.png"
+                alt="돌맹 프로필 이미지"
+                className="w-20 h-16 object-contain"
+                draggable="false"
+                style={{
+                  WebkitUserDrag: 'none',
+                }}
+              />
             </div>
-          );
-        })}
+
+            {/* 태그들 - flex-wrap으로 자연스럽게 배치 */}
+            <div className="absolute left-[155px] top-1/2 -translate-y-1/2 right-4 flex flex-wrap gap-2 items-start justify-center">
+              {userTags[user.id]?.map((tag, index) => (
+                <FilterTag
+                  key={index}
+                  className="text-xs"
+                >
+                  {tag.replace('# ', '')}
+                </FilterTag>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

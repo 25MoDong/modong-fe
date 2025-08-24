@@ -4,7 +4,32 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Toast from '../components/common/Toast';
 import { loadMapping, loadPlaceCache, saveMapping } from '../lib/favoritesStorage';
 import backend from '../lib/backend';
+import { deleteFavoriteStore } from '../lib/favoriteStoreApi';
 import userStore from '../lib/userStore';
+
+// Fixed origin: 서울특별시 성북구 정릉로 77 (approx coords)
+const ORIGIN = { lat: 37.6047, lng: 127.0139 };
+
+function toNumber(v, fallback = 0) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371e3; // meters
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c; // meters
+}
+
+function formatDistance(meters) {
+  if (!Number.isFinite(meters)) return '';
+  if (meters < 1000) return `${Math.round(meters)}m`;
+  return `${(meters / 1000).toFixed(1)}km`;
+}
 
 const SavedHistory = () => {
   const [activeTab, setActiveTab] = useState('local'); // 'local' or 'outside'
@@ -24,7 +49,7 @@ const SavedHistory = () => {
     let mounted = true;
     const fetchFavorites = async () => {
       try {
-        const uid = userStore.getUserId() || localStorage.getItem('MODONG_USER_ID');
+        const uid = userStore.getUserId();
         if (!uid) return;
         const list = await backend.getUserStores(uid);
         if (!mounted || !Array.isArray(list)) return;
@@ -45,7 +70,36 @@ const SavedHistory = () => {
     return () => { mounted = false; };
   }, []);
 
-  const currentPlaces = activeTab === 'local' ? localPlaces : outsidePlaces;
+  const currentPlaces = (activeTab === 'local' ? localPlaces : outsidePlaces).map(p => {
+    // Try to compute distance if coords exist on place
+    let lat = undefined;
+    let lng = undefined;
+    if (p.lat != null && p.lng != null) {
+      lat = toNumber(p.lat);
+      lng = toNumber(p.lng);
+    } else if (p.y != null && p.x != null) {
+      lat = toNumber(p.y);
+      lng = toNumber(p.x);
+    } else if (p.posY != null && p.posX != null) {
+      lat = toNumber(p.posY);
+      lng = toNumber(p.posX);
+    } else if (p.raw && (p.raw.posY != null && p.raw.posX != null)) {
+      lat = toNumber(p.raw.posY);
+      lng = toNumber(p.raw.posX);
+    }
+
+    let computedDistance = undefined;
+    if (lat != null && lng != null) {
+      computedDistance = haversine(ORIGIN.lat, ORIGIN.lng, lat, lng);
+    }
+    const distanceText = computedDistance != null ? formatDistance(computedDistance) : (p.distance || '');
+    return { ...p, _distanceMeters: computedDistance, _distanceText: distanceText };
+  }).sort((a, b) => {
+    if (sortBy !== 'distance') return 0;
+    const da = a._distanceMeters ?? Number.POSITIVE_INFINITY;
+    const db = b._distanceMeters ?? Number.POSITIVE_INFINITY;
+    return da - db;
+  });
 
   // 안전한 문자열 렌더링: 객체가 들어오면 가능한 텍스트 필드를 선택
   function safeText(val) {
@@ -70,7 +124,7 @@ const SavedHistory = () => {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (!placeToDelete) return;
 
     if (activeTab === 'local') {
@@ -84,16 +138,33 @@ const SavedHistory = () => {
       setToastMessage('찜한 장소에서 삭제되었습니다.');
       setShowToast(true);
     } else {
-      // remove from favorite_places in localStorage
+      // Try deleting via backend favorite store API (if raw data available),
+      // otherwise fall back to localStorage removal
       try {
-        const raw = localStorage.getItem('favorite_places') || '[]';
-        const arr = JSON.parse(raw);
-        const filtered = arr.filter(p => String(p.id) !== String(placeToDelete.id));
-        localStorage.setItem('favorite_places', JSON.stringify(filtered));
-      } catch (e) {}
-      setOutsidePlaces(prev => prev.filter(place => place.id !== placeToDelete.id));
-      setToastMessage('내 지역 외 장소 목록에서 삭제되었습니다.');
-      setShowToast(true);
+        const raw = placeToDelete.raw;
+        if (raw && raw.storeName && raw.detail) {
+          await deleteFavoriteStore(raw.storeName, raw.detail);
+        } else if (raw && raw.storeName) {
+          // best-effort deletion by storeName only
+          await deleteFavoriteStore(raw.storeName, raw.detail || '');
+        } else {
+          throw new Error('No backend keys to delete favorite');
+        }
+        setOutsidePlaces(prev => prev.filter(place => place.id !== placeToDelete.id));
+        setToastMessage('내 지역 외 장소 목록에서 삭제되었습니다.');
+        setShowToast(true);
+      } catch (e) {
+        // fallback to localStorage manipulation if backend deletion fails
+        try {
+          const raw = localStorage.getItem('favorite_places') || '[]';
+          const arr = JSON.parse(raw);
+          const filtered = arr.filter(p => String(p.id) !== String(placeToDelete.id));
+          localStorage.setItem('favorite_places', JSON.stringify(filtered));
+        } catch (err) {}
+        setOutsidePlaces(prev => prev.filter(place => place.id !== placeToDelete.id));
+        setToastMessage('내 지역 외 장소 목록에서 삭제되었습니다.');
+        setShowToast(true);
+      }
     }
 
     setShowDeleteModal(false);
@@ -106,46 +177,12 @@ const SavedHistory = () => {
   };
 
   return (
-    <div style={{
-      position: 'relative',
-      width: '100%',
-      maxWidth: '390px',
-      height: '100vh',
-      margin: '0 auto',
-      background: '#FFFFFF',
-      borderRadius: '50px',
-      overflow: 'hidden'
-    }}>
+    <div className="w-full max-w-[390px] mx-auto bg-white rounded-[50px] h-screen overflow-hidden flex flex-col">
       {/* 제목 */}
-      <div style={{
-        position: 'absolute',
-        width: '83px',
-        height: '29px',
-        left: 'calc(50% - 83px/2 + 0.5px)',
-        top: '49px',
-        fontFamily: 'Pretendard',
-        fontWeight: 600,
-        fontSize: '24px',
-        lineHeight: '29px',
-        display: 'flex',
-        alignItems: 'center',
-        textAlign: 'center',
-        color: '#000000'
-      }}>
-        저장내역
-      </div>
+      <div className="pt-12 pb-2 text-center text-black font-semibold text-2xl">저장내역</div>
 
       {/* 탭 네비게이션 */}
-      <div style={{
-        position: 'absolute',
-        top: '94px',
-        left: '0',
-        right: '0',
-        display: 'flex',
-        justifyContent: 'space-between',
-        paddingLeft: '67px',
-        paddingRight: '47px'
-      }}>
+      <div className="flex justify-between px-16" style={{marginTop: '10px'}}>
         <button
           onClick={() => setActiveTab('local')}
           style={{
@@ -178,75 +215,18 @@ const SavedHistory = () => {
         </button>
       </div>
 
-      {/* 탭 전체 클릭 영역 (텍스트 이외의 영역도 클릭되도록 투명 버튼 오버레이) */}
-      <div style={{ position: 'absolute', top: '94px', left: '0', right: '0', height: '40px', pointerEvents: 'none' }}>
-        <button
-          onClick={() => setActiveTab('local')}
-          aria-label="내 지역 장소 탭"
-          style={{
-            position: 'absolute',
-            left: '0',
-            top: '0',
-            bottom: '0',
-            width: '50%',
-            background: 'transparent',
-            border: 'none',
-            cursor: 'pointer',
-            pointerEvents: 'auto'
-          }}
-        />
-        <button
-          onClick={() => setActiveTab('outside')}
-          aria-label="내 지역 외의 장소 탭"
-          style={{
-            position: 'absolute',
-            right: '0',
-            top: '0',
-            bottom: '0',
-            width: '50%',
-            background: 'transparent',
-            border: 'none',
-            cursor: 'pointer',
-            pointerEvents: 'auto'
-          }}
-        />
-      </div>
+      {/* 투명 오버레이 제거: 버튼 자체로 클릭 */}
 
       {/* 탭 구분선 */}
-      <div style={{
-        position: 'absolute',
-        width: '390.01px',
-        height: '0px',
-        left: '-0.01px',
-        top: '123.5px',
-        border: '1.5px solid #B5B5B5'
-      }} />
+      <div className="border-t border-[#B5B5B5] mt-3" />
       
       {/* 활성 탭 표시선 */}
-      <div style={{
-        position: 'absolute',
-        width: activeTab === 'local' ? '200px' : '190px',
-        height: '0px',
-        left: activeTab === 'local' ? '0px' : '200px',
-        top: '123.5px',
-        border: '1.5px solid #000000',
-        transition: 'all 0.3s ease'
-      }} />
+      {/* simple active underline omitted in flex layout */}
 
       {/* 정렬 버튼 */}
-      <div style={{
-        position: 'absolute',
-        width: '65px',
-        height: '22px',
-        left: '290px',
-        top: '141px'
-      }}>
+      <div className="flex justify-end px-5 mt-3">
         <div style={{
-          position: 'absolute',
-          left: '0%',
-          right: '0%',
-          top: '0%',
-          bottom: '0%',
+          position: 'relative',
           background: '#FFFFFF',
           border: '1px solid #535F8B',
           boxShadow: '0px 0px 4px rgba(0, 0, 0, 0.25)',
@@ -279,15 +259,7 @@ const SavedHistory = () => {
       </div>
 
       {/* 장소 리스트 */}
-      <div style={{
-        position: 'absolute',
-        top: '179px',
-        left: 'calc(50% - 323px/2 + 0.5px)',
-        width: '323px',
-        bottom: '90px',
-        overflowY: 'auto',
-        paddingBottom: '20px'
-      }}>
+      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-24">
         <AnimatePresence>
         {currentPlaces.map((place, index) => (
           <motion.div
@@ -295,139 +267,27 @@ const SavedHistory = () => {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.98, height: 0, marginBottom: 0 }}
-            style={{
-              width: '323px',
-              height: '129px',
-              background: '#FFFFFF',
-              border: '1px solid #B5B5B5',
-              boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.25)',
-              borderRadius: '10px',
-              marginBottom: index < currentPlaces.length - 1 ? '16px' : '0',
-              position: 'relative'
-            }}
+          className={`relative bg-white border border-[#B5B5B5] shadow-md rounded-lg p-3 mb-4`} 
           >
-            {/* 이미지 플레이스홀더 */}
-            <div style={{
-              position: 'absolute',
-              left: '4.72%',
-              right: '61.06%',
-              top: '9.44%',
-              bottom: '9.53%',
-              background: '#000000',
-              borderRadius: '10px'
-            }} />
-
-            {/* 장소명 */}
-            <div style={{
-              position: 'absolute',
-              left: '44.58%',
-              right: '29.72%',
-              top: '10.85%',
-              bottom: '74.42%',
-              fontFamily: 'Pretendard',
-              fontWeight: 600,
-              fontSize: '16px',
-              lineHeight: '19px',
-              display: 'flex',
-              alignItems: 'center',
-              color: '#000000'
-            }}>
-              {safeText(place.name)}
+            <div className="flex gap-3">
+              <div className="w-24 h-24 bg-black rounded-lg shrink-0" />
+              <div className="flex-1 pr-8">
+                <div className="text-black font-semibold text-base">{safeText(place.name)}</div>
+                <div className="text-[#6A6F82] font-semibold text-sm mt-1">{safeText(place._distanceText)}</div>
+                <div className="text-[#6A6F82] font-semibold text-xs mt-2">{safeText(place.hours)}</div>
+                <div className="text-[#6A6F82] font-semibold text-xs mt-2">{safeText(place.similarity)}</div>
+              </div>
+              <button onClick={() => handleDeleteClick(place)} className="absolute right-3 top-3 w-6 h-6 flex items-center justify-center">
+                <X size={20} color="#9CA3AF" />
+              </button>
             </div>
-
-            {/* 거리 */}
-            <div style={{
-              position: 'absolute',
-              left: '44.27%',
-              right: '36.53%',
-              top: '27.91%',
-              bottom: '59.69%',
-              fontFamily: 'Pretendard',
-              fontWeight: 600,
-              fontSize: '13px',
-              lineHeight: '16px',
-              display: 'flex',
-              alignItems: 'center',
-              color: '#6A6F82'
-            }}>
-              {safeText(place.distance)}
-            </div>
-
-            {/* 영업시간 */}
-            <div style={{
-              position: 'absolute',
-              left: '44.58%',
-              right: '24.15%',
-              top: '43.41%',
-              bottom: '47.29%',
-              fontFamily: 'Pretendard',
-              fontWeight: 600,
-              fontSize: '10px',
-              lineHeight: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              color: '#6A6F82'
-            }}>
-              {safeText(place.hours)}
-            </div>
-
-            {/* 취향 유사도 */}
-            <div style={{
-              position: 'absolute',
-              left: '44.58%',
-              right: '25.7%',
-              top: '71.32%',
-              bottom: '19.38%',
-              fontFamily: 'Pretendard',
-              fontWeight: 600,
-              fontSize: '10px',
-              lineHeight: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              color: '#6A6F82'
-            }}>
-              {safeText(place.similarity)}
-            </div>
-
-            {/* X 삭제 아이콘 */}
-            <button
-              onClick={() => handleDeleteClick(place)}
-              style={{
-                position: 'absolute',
-                width: '24px',
-                height: '24px',
-                right: '15px',
-                top: '13px',
-                background: 'transparent',
-                border: 'none',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-            >
-              <X size={20} color="#9CA3AF" />
-            </button>
           </motion.div>
         ))}
         </AnimatePresence>
       </div>
 
       {/* 하단 네비게이션 */}
-      <div style={{
-        display: 'flex',
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: '20px 40px',
-        gap: '19px',
-        position: 'absolute',
-        width: '390px',
-        height: '70px',
-        left: '0px',
-        top: '774px',
-        background: '#FFFFFF'
-      }}>
+      <div className="flex flex-row justify-between items-center px-10 gap-5 h-[70px] bg-white border-t" style={{position: 'sticky', bottom: 0}}>
         {/* 네비게이션 아이콘들 */}
         <div style={{
           width: '24px',
@@ -469,15 +329,7 @@ const SavedHistory = () => {
         }} />
       </div>
 
-      {/* 하단 구분선 */}
-      <div style={{
-        position: 'absolute',
-        width: '330px',
-        height: '0px',
-        left: '30px',
-        top: '775px',
-        border: '2px solid #D9D9D9'
-      }} />
+      {/* 하단 구분선 (removed absolute positioning that caused overlap) */}
 
       {/* 삭제 확인 모달 */}
       {showDeleteModal && (

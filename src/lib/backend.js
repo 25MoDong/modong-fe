@@ -12,44 +12,40 @@ const backend = {
     const res = await api.get('/api/v1/' + encodeURIComponent(id));
     return res.data;
   },
-  // v5 - favorite stores / places
+  // v6 - store API (map feature priority)
   async getAllStores() {
-    // GET /api/v5/getAllFs
-    const res = await api.get('/api/v5/getAllFs');
+    // GET /api/v6/getAllStores
+    const res = await api.get('/api/v6/getAllStores');
     return Array.isArray(res.data) ? res.data : (res.data?.items || []);
   },
 
   async getUserStores(userId) {
     // GET /api/v5/getUserFs?userId=...
-    const res = await api.get('/api/v5/getUserFs', { params: { userId } });
+    if (!userId) return [];
+    const res = await api.get('/api/v5/getUserFs?userId=' + encodeURIComponent(userId));
     return Array.isArray(res.data) ? res.data : (res.data?.items || []);
   },
 
-  async getStoreByNameDetail(storeName, detail) {
-    // GET /api/v5/store/{storeName}/{detail}
-    const url = '/api/v5/store/' + encodeURIComponent(storeName) + '/' + encodeURIComponent(detail || '');
-    const res = await api.get(url);
+  async getStoreById(storeId) {
+    // GET /api/v6/{storeId}
+    const res = await api.get('/api/v6/' + encodeURIComponent(storeId));
     return res.data;
   },
 
   async searchStores(query) {
-    // No dedicated search endpoint in the docs — fetch all and filter client-side
+    // Use documented search endpoint: GET /api/v6/search?name=...
     if (!query || !query.trim()) return [];
-    const list = await backend.getAllStores();
-    const q = query.toLowerCase();
-    return list.filter((s) => {
-      const name = (s.storeName || s.name || '').toLowerCase();
-      const detail = (s.detail || s.address || '').toLowerCase();
-      const category = (s.category || '').toLowerCase();
-      return name.includes(q) || detail.includes(q) || category.includes(q);
-    });
+    const res = await api.get('/api/v6/search?name=' + encodeURIComponent(query));
+    return Array.isArray(res.data) ? res.data : [];
   },
 
   async getPlaceById(id) {
-    // The docs don't define an ID-based endpoint; try to find a match in getAllStores by storeName or detail
-    const list = await backend.getAllStores();
-    const found = list.find((s) => String(s.storeName) === String(id) || String(s.storeId) === String(id) || String(s.detail) === String(id));
-    return found || null;
+    // Map to storeId endpoint
+    try {
+      return await backend.getStoreById(id);
+    } catch (_) {
+      return null;
+    }
   }
 };
 

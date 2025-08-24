@@ -2,32 +2,33 @@
  * 사용자 관련 유틸리티 함수들
  */
 
-// 현재 로그인된 사용자 ID 가져오기
+import userStore from './userStore';
+
+// 현재 선택된(테스트) 사용자 ID 가져오기
+// NOTE: Do not create a hardcoded default (like '1') here — the app should
+// require an explicit user selection during onboarding. Return null if none.
 export const getCurrentUserId = () => {
-  // 로컬 스토리지에서 사용자 ID 조회
-  const userId = localStorage.getItem('MODONG_USER_ID');
-  
-  // 없으면 기본값 설정 (임시)
-  if (!userId) {
-    const defaultUserId = '1';
-    localStorage.setItem('MODONG_USER_ID', defaultUserId);
-    return defaultUserId;
-  }
-  
-  return userId;
+  const stored = userStore.getUserId();
+  return stored || null;
 };
 
 // 사용자 ID 설정
-export const setCurrentUserId = (userId) => {
-  localStorage.setItem('MODONG_USER_ID', String(userId));
+export const setCurrentUserId = async (userId) => {
+  // Keep selection in sync with central userStore
+  try {
+    await userStore.setUser({ id: userId });
+  } catch (e) {
+    // If userStore fails for any reason, rethrow so callers can handle it.
+    throw e;
+  }
 };
 
 // 사용자 로그아웃 (사용자 ID 제거)
 export const clearCurrentUserId = () => {
-  localStorage.removeItem('MODONG_USER_ID');
+  try { userStore.clear(); } catch (e) { throw e; }
 };
 
 // 사용자가 로그인되어 있는지 확인
 export const isUserLoggedIn = () => {
-  return !!localStorage.getItem('MODONG_USER_ID');
+  return !!userStore.getUserId();
 };

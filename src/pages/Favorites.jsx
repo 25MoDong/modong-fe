@@ -5,7 +5,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import CollectionCard from "../components/favorites/CollectionCard";
 import AddCollectionModal from "../components/favorites/AddCollectionModal";
 import CollectionDetail from "../components/favorites/CollectionDetail";
-import { dummyPlaces } from '../lib/dummyData';
+// backend-driven store resolution; dummyData fallback removed
 
 // 기존 로컬 저장소 함수들 (백업용)
 import {
@@ -232,24 +232,31 @@ export default function Favorites() {
                 <CollectionCard
                   title={c.title}
                   count={c.count}
-                  onClick={() => {
+                  onClick={async () => {
                     if (isEditMode) return handleCollectionSelect(c.id);
-                    const map = loadMapping();
-                    const placeIds = Object.entries(map)
-                      .filter(([placeId, colIds]) => (colIds || []).includes(c.id))
-                      .map(([placeId]) => placeId);
-                    // Resolve place objects: check dummyPlaces first, then saved place cache
-                    const places = placeIds.map(pid => {
-                      const numericId = Number(pid);
-                      const fromDummy = dummyPlaces.find(p => p.id === numericId);
-                      if (fromDummy) return fromDummy;
-                      // fallback to cached place object
-                      const cached = loadPlace(numericId);
-                      return cached;
-                    }).filter(Boolean);
-                    setDetailCollection(c);
-                    setDetailPlaces(places);
-                    setDetailOpen(true);
+                    try {
+                      const map = loadMapping();
+                      const placeIds = Object.entries(map)
+                        .filter(([placeId, colIds]) => (colIds || []).includes(c.id))
+                        .map(([placeId]) => placeId);
+
+                      const places = await Promise.all(placeIds.map(async pid => {
+                        try {
+                          const store = await backend.getStoreById(pid);
+                          if (store) return store;
+                        } catch (err) {
+                          // ignore and fallback to cache
+                        }
+                        const cached = loadPlace(pid);
+                        return cached || { id: pid, name: `장소 ${pid}`, category: '알 수 없음' };
+                      }));
+
+                      setDetailCollection(c);
+                      setDetailPlaces(places.filter(Boolean));
+                      setDetailOpen(true);
+                    } catch (err) {
+                      console.error('Failed to load collection places:', err);
+                    }
                   }}
                   className={selectedCollections.includes(c.id) ? 'ring-2 ring-blue-500' : ''}
                 />

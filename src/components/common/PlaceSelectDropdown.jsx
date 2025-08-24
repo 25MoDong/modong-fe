@@ -67,7 +67,8 @@ const PlaceSelectDropdown = ({
   if (!isOpen) return null;
 
   const handlePlaceSelect = (place) => {
-    onSelectPlace(place.label || place);
+    // prefer passing the raw backend object when available
+    onSelectPlace(place.raw || place.label || place);
     onClose();
   };
 

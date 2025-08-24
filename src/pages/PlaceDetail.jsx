@@ -168,7 +168,7 @@ export default function PlaceDetail() {
         {/* 태그 */}
         <div className="px-5 pt-4">
           <FilterTags 
-            tags={place?.tags || MOCK.tags} 
+            tags={(place?.tags && Array.isArray(place.tags) ? place.tags.map(t => (typeof t === 'string' ? t : (t?.name || t?.label || ''))).filter(Boolean) : MOCK.tags)} 
             selectedTag={null}
             onTagSelect={(tag) => console.log('Selected tag:', tag)}
           />
@@ -202,7 +202,7 @@ export default function PlaceDetail() {
           {isFromHome ? (
             // 홈에서 넘어온 경우: desc + 유사도 표시
             <p className="text-[13px] leading-5 text-gray-700">
-              {place?.desc || MOCK.desc}
+              {place?.desc || place?.description || MOCK.desc}
             </p>
           ) : isFromMap ? (
             // 지도에서 넘어온 경우: 후기 개수 설명 표시  
@@ -212,7 +212,7 @@ export default function PlaceDetail() {
           ) : (
             // 기본값
             <p className="text-[13px] leading-5 text-gray-700">
-              {place?.desc || MOCK.desc}
+              {place?.desc || place?.description || MOCK.desc}
             </p>
           )}
         </div>
