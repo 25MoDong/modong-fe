@@ -137,11 +137,11 @@ const Home = () => {
   ];
 
   const handleOnboardingComplete = useCallback((userData) => {
-    localStorage.setItem('onboarding_completed', 'true');
+    // OnboardingFlow 내에서 이미 localStorage 설정이 완료됨
     localStorage.setItem('user_data', JSON.stringify(userData));
     setNeedsOnboarding(false);
 
-    window.dispatchEvent(new CustomEvent('OnboardingCompleted'));
+    // 온보딩 완료 후 홈 페이지 유지 (Redefinition에서 이미 처리됨)
   }, []);
 
   const handleWriteReview = useCallback(() => {
@@ -160,6 +160,27 @@ const Home = () => {
   const [selectedPlace, setSelectedPlace] = useState(null);
   const placeContainerRef = useRef(null);
   const [placeCategories, setPlaceCategories] = useState([]);
+
+  // Load one hero favorite store from v5 and reflect its name/tags in the hero area
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const uid = userStore.getUserId();
+        if (!uid) return;
+        const list = await backend.getUserStores(uid);
+        if (!mounted || !Array.isArray(list) || list.length === 0) return;
+        const hero = list[0];
+        const name = hero.storeName || hero.name || hero.title || hero.store || '연남 작당모의 카페';
+        if (mounted) setSelectedPlace(name);
+        // prefer hero.tags if available, otherwise show the default three tags requested
+        if (mounted) setPlaceCategories(Array.isArray(hero.tags) && hero.tags.length ? hero.tags : ["달달한", "분위기가 좋은", "베이커리가 많은"]);
+      } catch (e) {
+        // ignore and keep defaults
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   const handleOpenPlaceDropdown = useCallback(() => {
     setPlaceDropdownOpen(true);
@@ -266,10 +287,31 @@ const Home = () => {
   return (
     <div className="bg-white h-full flex flex-col">
       <div className="flex-1 overflow-y-auto no-scrollbar px-4 sm:px-6 pt-4 pb-6">
-        {/* Top row: location + brand */}
+        {/* Top row: location + brand + redefinition button */}
         <div className="flex items-center justify-between">
           <LocationBar hasContainer={false} />
-          <div className="text-[24px] font-medium" style={{ fontFamily: 'KCC-Hanbit, sans-serif' }}>돌맹돌맹</div>
+          <div className="flex items-center gap-2">
+            {process.env.NODE_ENV === 'development' && (
+              <button
+                onClick={() => {
+                  localStorage.removeItem('onboarding_completed');
+                  localStorage.removeItem('redefinition_completed');
+                  localStorage.removeItem('user_data');
+                  window.location.reload();
+                }}
+                className="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+              >
+                리셋
+              </button>
+            )}
+            <button
+              onClick={() => navigate('/redefinition')}
+              className="px-3 py-1 text-xs bg-primary-500 text-white rounded-full hover:bg-primary-600 transition-colors"
+            >
+              재정의
+            </button>
+            <div className="text-[24px] font-medium" style={{ fontFamily: 'KCC-Hanbit, sans-serif' }}>돌맹돌맹</div>
+          </div>
         </div>
 
         {/* Status cards (stamp, coupon) + Hero */}
@@ -303,9 +345,27 @@ const Home = () => {
                           maxFontSize={22}
                           containerWidth={165}
                           containerHeight={44}
+                          allowWrap={true}
                           className="font-kcc-hanbit text-black text-center block w-full"
                         >
-                          {selectedPlace || '연남동 밀리커피'}
+                          {
+                            (() => {
+                              const raw = String(selectedPlace || '연남동 밀리커피');
+                              // split at the first space to two lines if possible
+                              const idx = raw.indexOf(' ');
+                              if (idx > 0) {
+                                const a = raw.slice(0, idx);
+                                const b = raw.slice(idx + 1);
+                                return (<><div>{a}</div><div>{b}</div></>);
+                              }
+                              // fallback: try splitting by dash or middle dot
+                              const sepIdx = raw.indexOf('-');
+                              if (sepIdx > 0) {
+                                return (<><div>{raw.slice(0, sepIdx)}</div><div>{raw.slice(sepIdx+1)}</div></>);
+                              }
+                              return raw;
+                            })()
+                          }
                         </AutoSizeText>
                       </div>
                       <PlaceSelectDropdown

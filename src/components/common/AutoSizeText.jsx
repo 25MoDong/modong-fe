@@ -6,7 +6,8 @@ const AutoSizeText = ({
   minFontSize = 12, 
   maxFontSize = 22,
   containerWidth = 148,
-  containerHeight = 27 
+  containerHeight = 27,
+  allowWrap = false
 }) => {
   const textRef = useRef(null);
   const [fontSize, setFontSize] = useState(maxFontSize);
@@ -22,41 +23,41 @@ const AutoSizeText = ({
       el.style.display = 'inline-block';
       el.style.overflow = 'hidden';
 
-      // reset: force single line by default
-      el.style.whiteSpace = 'nowrap';
+          // reset
       el.style.letterSpacing = '0px';
-
       let size = maxFontSize;
       el.style.fontSize = `${size}px`;
 
-      // Try reduce font size to fit single line
-      while (size > minFontSize && el.scrollWidth > containerWidth) {
-        size -= 1;
-        el.style.fontSize = `${size}px`;
-      }
-
-      // If still overflow horizontally, try tighten letter-spacing
-      if (el.scrollWidth > containerWidth) {
-        let ls = 0; // px
-        while (ls > -6 && el.scrollWidth > containerWidth) {
-          ls -= 0.5; // reduce by 0.5px
-          el.style.letterSpacing = `${ls}px`;
+      if (!allowWrap) {
+        // single-line mode (legacy behavior)
+        el.style.whiteSpace = 'nowrap';
+        // Try reduce font size to fit single line
+        while (size > minFontSize && el.scrollWidth > containerWidth) {
+          size -= 1;
+          el.style.fontSize = `${size}px`;
         }
-      }
 
-      // Keep strictly one line: do not allow wrapping.
-      // If still overflowing, clamp to minFontSize and apply tighter letter-spacing a bit more.
-      if (el.scrollWidth > containerWidth) {
-        let fs = size;
-        while (fs > minFontSize && el.scrollWidth > containerWidth) {
-          fs -= 1;
-          el.style.fontSize = `${fs}px`;
-        }
-        size = fs;
+        // try tighten letter-spacing if still overflow
         if (el.scrollWidth > containerWidth) {
-          let ls = parseFloat(el.style.letterSpacing) || 0;
-          while (ls > -8 && el.scrollWidth > containerWidth) {
-            ls -= 0.25;
+          let ls = 0;
+          while (ls > -6 && el.scrollWidth > containerWidth) {
+            ls -= 0.5;
+            el.style.letterSpacing = `${ls}px`;
+          }
+        }
+      } else {
+        // multi-line mode: allow wrapping and ensure content fits container height/width
+        el.style.whiteSpace = 'normal';
+        // loop reduce font size until both dimensions fit
+        while (size > minFontSize && (el.scrollWidth > containerWidth || el.scrollHeight > containerHeight)) {
+          size -= 1;
+          el.style.fontSize = `${size}px`;
+        }
+        // if still overflowing horizontally, tighten letter-spacing a bit
+        if (el.scrollWidth > containerWidth) {
+          let ls = 0;
+          while (ls > -6 && el.scrollWidth > containerWidth) {
+            ls -= 0.5;
             el.style.letterSpacing = `${ls}px`;
           }
         }

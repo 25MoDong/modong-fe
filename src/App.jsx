@@ -14,53 +14,57 @@ const CouponDetail = lazy(() => import('./pages/CouponDetail'));
 const WriteReview = lazy(() => import('./pages/WriteReview'));
 const ReviewComplete = lazy(() => import('./pages/ReviewComplete'));
 const SavedHistory = lazy(() => import('./pages/SavedHistory'));
+const MyReviews = lazy(() => import('./pages/MyReviews'));
+const Redefinition = lazy(() => import('./components/Onboarding/Redefinition'));
 
 
 export default function App() {
   return (
     <Suspense fallback={<div className="p-6">로딩 중...</div>}>
       <Routes>
-      <Route path="/" element={<Layout />}>
-        <Route index element={<Home />} />
-        <Route
-          path="favorites"
-          element={<Favorites />}
-        />
-        <Route path="map" element={<Map />} />
-        <Route
-          path="community"
-          element={<div className="p-8">커뮤니티 페이지 (구현 예정)</div>}
-        />
-        <Route path="profile" element={<MyPage />} />
-        <Route
-          path="search"
-          element={<Search/>}
-        />
-        <Route 
-          path="place/:id" 
-          element={<PlaceDetail />} 
-        />
-        <Route 
-          path="write-review" 
-          element={<WriteReview />} 
-        />
-        <Route 
-          path="review-complete" 
-          element={<ReviewComplete />} 
-        />
-        <Route 
-          path="saved-history" 
-          element={<SavedHistory />} 
-        />
-        <Route 
-          path="my-reviews" 
-          element={<div className="p-8 text-center"><h1 className="text-2xl font-semibold mb-4">내가 쓴 후기</h1><p className="text-gray-600">구현 예정입니다.</p></div>} 
-        />
-        <Route path="coupons" element={<Coupons />} />
-        <Route path="coupons/:id" element={<CouponDetail />} />
+        {/* 모든 페이지들을 레이아웃 포함으로 통합 */}
+        <Route path="/" element={<Layout />}>
+          <Route index element={<Home />} />
+          <Route 
+            path="redefinition" 
+            element={<Redefinition />} 
+          />
+          <Route
+            path="favorites"
+            element={<Favorites />}
+          />
+          <Route path="map" element={<Map />} />
+          <Route
+            path="community"
+            element={<div className="p-8">커뮤니티 페이지 (구현 예정)</div>}
+          />
+          <Route path="profile" element={<MyPage />} />
+          <Route
+            path="search"
+            element={<Search/>}
+          />
+          <Route 
+            path="place/:id" 
+            element={<PlaceDetail />} 
+          />
+          <Route 
+            path="write-review" 
+            element={<WriteReview />} 
+          />
+          <Route 
+            path="review-complete" 
+            element={<ReviewComplete />} 
+          />
+          <Route 
+            path="saved-history" 
+            element={<SavedHistory />} 
+          />
+          <Route path="my-reviews" element={<MyReviews />} />
+          <Route path="coupons" element={<Coupons />} />
+          <Route path="coupons/:id" element={<CouponDetail />} />
 
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Route>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
       </Routes>
     </Suspense>
   );

@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ImagePlus, ChevronDown, ChevronUp, ArrowLeft } from 'lucide-react';
 import MyReviewsList from '../components/review/MyReviewsList';
+import PlaceSelectDropdown from '../components/common/PlaceSelectDropdown';
 import { createReview } from '../lib/reviewApi';
 import backend from '../lib/backend';
 import userStore from '../lib/userStore';
@@ -24,13 +25,15 @@ const WriteReview = () => {
   });
 
   const [showPlaceDropdown, setShowPlaceDropdown] = useState(false);
+  const placeButtonRef = useRef(null);
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [showToast, setShowToast] = useState(false);
   const [activeTab, setActiveTab] = useState('write'); // 'write' or 'myreviews'
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 방문 가능한 장소 목록 (실제로는 API에서 가져올 것)
+  // (legacy) fallback availablePlaces kept for local fallback, but actual list
+  // is loaded by PlaceSelectDropdown from backend per selected user.
   const availablePlaces = [
     { id: 1, name: '성북동 카페 온어', category: '카페' },
     { id: 2, name: '한성대입구 돼지국밥', category: '식당' },
@@ -48,10 +51,13 @@ const WriteReview = () => {
 
   // 장소 선택 핸들러
   const handlePlaceSelect = (place) => {
+    // place may be a backend object (with storeId/storeName/storeName) or a simple fallback
+    const label = place.storeName || place.name || place.title || place.store || place.storeId || '';
+    const id = place.storeId || place.id || place.store || '';
     setReviewData(prev => ({
       ...prev,
-      selectedPlace: place.name,
-      placeId: place.id
+      selectedPlace: label,
+      placeId: id
     }));
     setShowPlaceDropdown(false);
   };
@@ -153,14 +159,19 @@ const WriteReview = () => {
 
     setIsSubmitting(true);
     try {
-      const userId = localStorage.getItem('MODONG_USER_ID') || '1';
-      
+      // Use the selected user id from userStore; do not fall back to a hardcoded '1'.
+      const storedUserId = userStore.getUserId();
+      if (!storedUserId) {
+        showToastMessage('사용자가 선택되지 않았습니다. 테스트 유저를 선택해주세요.');
+        setIsSubmitting(false);
+        return;
+      }
+
       // API에 맞는 형식으로 데이터 준비
       const apiData = {
-        userId: parseInt(userId),
+        userId: storedUserId,
         storeId: reviewData.placeId,
         content: reviewData.oneLineReview,
-        // 추가 필드들이 필요하면 여기에 추가
       };
       
       // 실제 API 호출로 후기 저장
@@ -169,20 +180,22 @@ const WriteReview = () => {
 
       // 후기 작성 성공 시 사용자 스탬프를 1 올려 서버에 반영
       try {
-        const uid = localStorage.getItem('MODONG_USER_ID') || userStore?.getUserId?.() || '1';
-        const user = await backend.getUserById(uid);
-        if (user) {
-          const newStamp = (Number(user.user_stamp) || 0) + 1;
-          // Build a body merging existing known fields to avoid overwriting
-          const payload = {
-            id: user.id || uid,
-            address: user.address || '',
-            userMood: Array.isArray(user.userMood) ? user.userMood.join('\n') : (user.userMood || ''),
-            user_stamp: newStamp
-          };
-          await updateUser(uid, payload);
-          // notify other parts of app to refresh user data
-          window.dispatchEvent(new CustomEvent('UserChanged', { detail: { ...user, user_stamp: newStamp } }));
+        const uid = userStore.getUserId();
+        if (uid) {
+          const user = await backend.getUserById(uid);
+          if (user) {
+            const newStamp = (Number(user.user_stamp) || 0) + 1;
+            // Build a body merging existing known fields to avoid overwriting
+            const payload = {
+              id: user.id || uid,
+              address: user.address || '',
+              userMood: Array.isArray(user.userMood) ? user.userMood.join('\n') : (user.userMood || ''),
+              user_stamp: newStamp
+            };
+            await updateUser(uid, payload);
+            // notify other parts of app to refresh user data
+            window.dispatchEvent(new CustomEvent('UserChanged', { detail: { ...user, user_stamp: newStamp } }));
+          }
         }
       } catch (e) {
         // non-fatal: log and continue
@@ -266,7 +279,7 @@ const WriteReview = () => {
             <div className="w-1 h-1 bg-red-500 rounded-full" />
           </div>
           
-          <div className="relative">
+          <div className="relative" ref={placeButtonRef}>
             <button
               onClick={() => setShowPlaceDropdown(!showPlaceDropdown)}
               className="w-full py-3 px-4 bg-white border border-gray-300 rounded-lg flex items-center justify-between text-left"
@@ -280,21 +293,14 @@ const WriteReview = () => {
                 <ChevronDown size={16} className="text-gray-500" />
               )}
             </button>
-            
-            {/* 드롭다운 메뉴 */}
-            {showPlaceDropdown && (
-              <div className="absolute top-full left-0 w-full bg-white border border-gray-300 rounded-lg mt-1 shadow-lg z-10">
-                {availablePlaces.map((place) => (
-                  <button
-                    key={place.id}
-                    onClick={() => handlePlaceSelect(place)}
-                    className="w-full px-4 py-3 text-left text-sm hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg"
-                  >
-                    {place.name}
-                  </button>
-                ))}
-              </div>
-            )}
+
+            <PlaceSelectDropdown
+              isOpen={showPlaceDropdown}
+              onClose={() => setShowPlaceDropdown(false)}
+              selectedPlace={reviewData.selectedPlace}
+              onSelectPlace={handlePlaceSelect}
+              containerRef={placeButtonRef}
+            />
           </div>
         </div>
 

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import TestUserSelect from './TestUserSelect';
-import UserReWriting from './UserReWriting';
+import Redefinition from './Redefinition';
 
 const OnboardingFlow = ({ onComplete }) => {
   const [step, setStep] = useState('testuser');
@@ -26,9 +26,9 @@ const OnboardingFlow = ({ onComplete }) => {
         />
       )}
       {step === 'rewriting' && (
-        <UserReWriting
-          user={selectedUser}
+        <Redefinition
           onComplete={() => handleStepComplete('rewriting')}
+          fromOnboarding={true}
         />
       )}
     </>

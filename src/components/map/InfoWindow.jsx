@@ -77,7 +77,7 @@ const InfoWindow = memo(function InfoWindow({ place, onClose }) {
           textAlign: 'center',
           color: '#000000'
         }}>
-          내 주변 돌멩이 수집가 0명에게 인증받은 장소
+          {place?.desc || place?.description || '추천받은 장소'}
         </div>
 
         {/* Left section with image placeholder */}
@@ -115,7 +115,7 @@ const InfoWindow = memo(function InfoWindow({ place, onClose }) {
           lineHeight: '12px',
           color: '#8E98A8'
         }}>
-          23m 이내
+          {place?.distance || place?.distanceText || ''}
         </div>
 
         {/* Detail link */}
@@ -143,67 +143,32 @@ const InfoWindow = memo(function InfoWindow({ place, onClose }) {
           left: '15px',
           top: '126px',
           display: 'flex',
-          gap: '4px'
+          gap: '4px',
+          maxWidth: '215px',
+          flexWrap: 'wrap'
         }}>
-          <div style={{
-            width: '45px',
-            height: '21px',
-            background: '#FFF5E2',
-            border: '1px solid #C0AA92',
-            borderRadius: '10px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
-            <span style={{
-              fontWeight: 600,
-              fontSize: '10px',
-              lineHeight: '12px',
-              color: '#AB9177'
+          {(place?.tags || []).slice(0,3).map((tag, idx) => (
+            <div key={idx} style={{
+              height: '21px',
+              padding: '0 8px',
+              background: '#FFF5E2',
+              border: '1px solid #C0AA92',
+              borderRadius: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
             }}>
-              맛있는
-            </span>
-          </div>
-          
-          <div style={{
-            width: '60px',
-            height: '21px',
-            background: '#FFF5E2',
-            border: '1px solid #C0AA92',
-            borderRadius: '10px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
-            <span style={{
-              fontWeight: 600,
-              fontSize: '10px',
-              lineHeight: '12px',
-              color: '#AB9177'
-            }}>
-              가성비 좋은
-            </span>
-          </div>
-          
-          <div style={{
-            width: '45px',
-            height: '21px',
-            background: '#FFF5E2',
-            border: '1px solid #C0AA92',
-            borderRadius: '10px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
-            <span style={{
-              fontWeight: 600,
-              fontSize: '10px',
-              lineHeight: '12px',
-              color: '#AB9177'
-            }}>
-              맛있는
-            </span>
-          </div>
+              <span style={{
+                fontWeight: 600,
+                fontSize: '10px',
+                lineHeight: '12px',
+                color: '#AB9177',
+                whiteSpace: 'nowrap'
+              }}>
+                {typeof tag === 'string' ? tag : (tag?.name || tag?.label || '')}
+              </span>
+            </div>
+          ))}
         </div>
 
         {/* Road map icon */}

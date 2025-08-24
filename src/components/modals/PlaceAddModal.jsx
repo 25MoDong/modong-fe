@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Toast from '../common/Toast';
+import userStore from '../../lib/userStore';
+import { addFavoriteStore } from '../../lib/favoriteStoreApi';
 
 const PlaceAddModal = ({ isOpen, onClose }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -90,7 +92,6 @@ const PlaceAddModal = ({ isOpen, onClose }) => {
     const category = selectedPlace ? (selectedPlace.category_group_name || '기타') : '기타';
 
     const favoritePlace = {
-      id: Date.now(),
       name,
       address,
       menu: menuName.trim() || '',
@@ -98,18 +99,33 @@ const PlaceAddModal = ({ isOpen, onClose }) => {
       addedAt: new Date().toISOString()
     };
 
-    const existingFavorites = JSON.parse(localStorage.getItem('favorite_places') || '[]');
-    existingFavorites.push(favoritePlace);
-    localStorage.setItem('favorite_places', JSON.stringify(existingFavorites));
-
-    // 토스트 메시지 표시
-    setToastMessage('최애장소에 추가되었습니다!');
-    setShowToast(true);
-    
-    // 모달 닫고 초기화
-    setTimeout(() => {
-      handleClose();
-    }, 500);
+    // Try backend add first
+    (async () => {
+      try {
+        const uid = userStore.getUserId();
+        if (!uid) throw new Error('User not selected');
+        // API expects favorite store payload for v5; include 'detail' field
+        const payload = {
+          userId: uid,
+          storeName: name,
+          detail: address,
+          menu: menuName.trim() || '',
+          category,
+        };
+        await addFavoriteStore(payload);
+        setToastMessage('최애장소에 추가되었습니다!');
+        setShowToast(true);
+      } catch (err) {
+        console.warn('Backend add favorite failed, falling back to local storage', err);
+        const existingFavorites = JSON.parse(localStorage.getItem('favorite_places') || '[]');
+        existingFavorites.push({ id: Date.now(), ...favoritePlace });
+        localStorage.setItem('favorite_places', JSON.stringify(existingFavorites));
+        setToastMessage('최애장소에 추가되었습니다! (오프라인 저장)');
+        setShowToast(true);
+      } finally {
+        setTimeout(() => { handleClose(); }, 500);
+      }
+    })();
   };
 
   // 하루 동안 보지 않기

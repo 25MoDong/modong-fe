@@ -23,10 +23,11 @@ import {
   deleteFavoriteStore
 } from './favoriteStoreApi';
 import { getUserById } from './userApi';
+import userStore from './userStore';
 
 // 현재 사용자 ID (실제로는 로그인 상태에서 가져와야 함)
 const getCurrentUserId = () => {
-  return localStorage.getItem('MODONG_USER_ID') || '1';
+  return userStore.getUserId() || null;
 };
 
 // 찜 컬렉션 목록 조회 (집제목 목록)
@@ -34,7 +35,7 @@ export const loadCollections = async () => {
   try {
     const userId = getCurrentUserId();
     // 사용자별 찜 목록 조회
-    const favoriteStores = await getUserFavoriteStores();
+    const favoriteStores = await getUserFavoriteStores(userId);
     
     // 집제목별로 그룹화하여 컬렉션 형태로 변환
     const collections = [];
@@ -93,9 +94,10 @@ const cacheCollections = (collections) => {
 export const addCollection = async (title, description = '') => {
   try {
     const userId = getCurrentUserId();
-    
+    if (!userId) throw new Error('No user selected');
+
     const jtData = {
-      userId: parseInt(userId),
+      userId,
       title,
       description
     };
@@ -187,7 +189,8 @@ export const getCollectionPlaces = async (collectionId) => {
 // 장소-컬렉션 매핑 정보 조회
 export const loadMapping = async () => {
   try {
-    const favoriteStores = await getUserFavoriteStores();
+    const userId = getCurrentUserId();
+    const favoriteStores = await getUserFavoriteStores(userId);
     const mapping = {};
     
     if (favoriteStores && Array.isArray(favoriteStores)) {

@@ -172,24 +172,6 @@ const MapPage = () => {
     }
   }, [location.state, mapInstance, selectPlace, viewport.zoom, showSearchModal, enterSearchMode]);
   
-  // Demo: Simulate search results for testing map tracking (DISABLED FOR DEBUGGING)
-  // useEffect(() => {
-  //   const urlParams = new URLSearchParams(window.location.search);
-  //   if (urlParams.get('demo') === 'search' && places.length > 0 && !demoInitializedRef.current) {
-  //     // Use first 5 places as demo search results
-  //     const demoResults = places.slice(0, 5);
-  //     const demoSearchId = `demo-${Date.now()}`;
-  //     
-  //     // Enter search mode and show demo results
-  //     enterSearchMode(demoResults);
-  //     showSearchModal(demoResults, demoSearchId);
-  //     
-  //     // Mark demo as initialized to prevent re-triggering
-  //     demoInitializedRef.current = true;
-  //   }
-  // }, [places, showSearchModal, enterSearchMode]);
-
-  // Handle user location
   const handleUserLocation = useCallback(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(

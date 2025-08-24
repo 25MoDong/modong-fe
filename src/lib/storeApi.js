@@ -1,162 +1,117 @@
 import api from './api';
 
 /**
- * 가게/장소 관련 API 함수들
- * 현재 백엔드에 Store 전용 API가 없으므로, 기존 API들을 활용하여 구현
+ * 가게/장소 관련 API 함수들 (OpenAPI v6 스펙 준수)
+ * - 맵에 가게를 띄우는 기능 우선: 백엔드의 Store 엔드포인트를 직접 사용
  */
 
-// 모든 가게 정보 조회 (후기 API를 통해 가게 정보 추출)
+// OpenAPI: GET /api/v6/getAllStores
 export const getAllStores = async () => {
   try {
-    // 모든 후기를 조회하여 가게 정보 추출
-    const response = await api.get('/api/v2/getAllReview');
-    const reviews = response.data;
-    
-    if (!Array.isArray(reviews)) {
-      return [];
-    }
-    
-    // 후기에서 고유한 가게 정보 추출
-    const storeMap = new Map();
-    
-    reviews.forEach(review => {
-      if (review.storeId && !storeMap.has(review.storeId)) {
-        storeMap.set(review.storeId, {
-          id: review.storeId,
-          name: review.storeName || `가게 ${review.storeId}`,
-          category: review.category || '카페',
-          address: review.address || '주소 정보 없음',
-          rating: calculateAverageRating(reviews.filter(r => r.storeId === review.storeId)),
-          reviewCount: reviews.filter(r => r.storeId === review.storeId).length,
-          tags: extractTags(reviews.filter(r => r.storeId === review.storeId)),
-          images: review.images || [],
-          // 추가 더미 정보
-          hours: {
-            isOpen: true,
-            todayHours: '09:00 - 21:00'
-          },
-          distance: generateRandomDistance(),
-        });
-      }
-    });
-    
-    return Array.from(storeMap.values());
+    const res = await api.get('/api/v6/getAllStores');
+    const stores = res.data || res; // fetch 래퍼/axios 혼용 대비
+    if (!Array.isArray(stores)) return [];
+    return stores.map(normalizeStore);
   } catch (error) {
     console.error('Failed to fetch stores:', error);
     return getDummyStores();
   }
 };
 
-// 특정 가게 정보 조회 (후기를 통해)
+// OpenAPI: GET /api/v6/{storeId}
 export const getStoreById = async (storeId) => {
   try {
-    const response = await api.get(`/api/v2/storeReview/${storeId}`);
-    const reviews = response.data;
-    
-    if (!Array.isArray(reviews) || reviews.length === 0) {
-      return null;
-    }
-    
-    const firstReview = reviews[0];
-    
-    return {
-      id: storeId,
-      name: firstReview.storeName || `가게 ${storeId}`,
-      category: firstReview.category || '카페',
-      address: firstReview.address || '주소 정보 없음',
-      rating: calculateAverageRating(reviews),
-      reviewCount: reviews.length,
-      tags: extractTags(reviews),
-      images: firstReview.images || [],
-      hours: {
-        isOpen: true,
-        todayHours: '09:00 - 21:00'
-      },
-      distance: generateRandomDistance(),
-      description: firstReview.description || '매력적인 장소입니다.',
-      contact: {
-        phone: generateRandomPhone()
-      }
-    };
+    const res = await api.get(`/api/v6/${storeId}`);
+    const store = res.data || res;
+    return normalizeStore(store);
   } catch (error) {
     console.error('Failed to fetch store by ID:', error);
     return null;
   }
 };
 
-// 가게 검색 (후기 내용으로 검색)
-export const searchStores = async (query) => {
+// OpenAPI: GET /api/v6/search?name=...
+export const searchStores = async (name) => {
   try {
-    const allStores = await getAllStores();
-    
-    if (!query || query.trim() === '') {
-      return allStores;
-    }
-    
-    const lowerQuery = query.toLowerCase().trim();
-    
-    return allStores.filter(store => 
-      store.name.toLowerCase().includes(lowerQuery) ||
-      store.category.toLowerCase().includes(lowerQuery) ||
-      store.address.toLowerCase().includes(lowerQuery) ||
-      store.tags.some(tag => tag.toLowerCase().includes(lowerQuery))
-    );
+    const res = await api.get(`/api/v6/search?name=${encodeURIComponent(name || '')}`);
+    const stores = res.data || res;
+    if (!Array.isArray(stores)) return [];
+    return stores.map(normalizeStore);
   } catch (error) {
     console.error('Failed to search stores:', error);
     return [];
   }
 };
 
-// 인기 가게 목록 조회 (후기 많은 순)
-export const getPopularStores = async (limit = 10) => {
-  try {
-    const allStores = await getAllStores();
-    
-    return allStores
-      .sort((a, b) => b.reviewCount - a.reviewCount)
-      .slice(0, limit);
-  } catch (error) {
-    console.error('Failed to fetch popular stores:', error);
-    return getDummyStores().slice(0, limit);
-  }
-};
-
-// 카테고리별 가게 조회
+// OpenAPI: GET /api/v6/category/{category}
 export const getStoresByCategory = async (category) => {
   try {
-    const allStores = await getAllStores();
-    
-    return allStores.filter(store => 
-      store.category.toLowerCase() === category.toLowerCase()
-    );
+    const res = await api.get(`/api/v6/category/${encodeURIComponent(category)}`);
+    const stores = res.data || res;
+    if (!Array.isArray(stores)) return [];
+    return stores.map(normalizeStore);
   } catch (error) {
     console.error('Failed to fetch stores by category:', error);
     return [];
   }
 };
 
+// OpenAPI: POST /api/v6/createStore
+export const createStore = async (payload) => {
+  const res = await api.post('/api/v6/createStore', payload);
+  const store = res.data || res;
+  return normalizeStore(store);
+};
+
+// OpenAPI: PUT /api/v6/{storeId}
+export const updateStore = async (storeId, payload) => {
+  const res = await api.put(`/api/v6/${storeId}`, payload);
+  const store = res.data || res;
+  return normalizeStore(store);
+};
+
+// OpenAPI: DELETE /api/v6/{storeId}
+export const deleteStore = async (storeId) => {
+  await api.delete(`/api/v6/${storeId}`);
+  return true;
+};
+
+// 정규화: 백엔드 스키마(StoreResponseDto)를 프런트 공용 형태로 변환
+function normalizeStore(s) {
+  if (!s) return s;
+  // Note: backend provides address in `detail` string. We geocode later if no coords.
+  return {
+    id: s.storeId || s.id,
+    name: s.storeName || s.name,
+    category: s.category || '기타',
+    address: s.detail || s.address,
+    description: s.description,
+    images: s.images || [],
+    tags: toTags(s.storeMood),
+    rating: s.rating,
+    reviewCount: s.reviewCount,
+    contact: { phone: s.phone },
+    hours: s.operatingHours ? { isOpen: true, todayHours: s.operatingHours } : undefined,
+    // 좌표 정보가 스펙에 없다면 null로 두고, 클라이언트에서 지오코딩 수행
+    coordinates: s.coordinates || null,
+  };
+}
+
+function toTags(mood) {
+  if (!mood) return [];
+  // 문자열 내 개행으로 구분되어 오는 스펙을 태그 배열로 변환
+  if (typeof mood === 'string') {
+    return mood
+      .split(/\r?\n|,/) // 개행 또는 콤마 기준 분리
+      .map(v => v.trim())
+      .filter(Boolean)
+      .slice(0, 4);
+  }
+  if (Array.isArray(mood)) return mood.slice(0, 4);
+  return [];
+}
+
 // 유틸리티 함수들
-const calculateAverageRating = (reviews) => {
-  if (!reviews || reviews.length === 0) return 4.0;
-  
-  const sum = reviews.reduce((acc, review) => acc + (review.rating || 4.0), 0);
-  return Math.round((sum / reviews.length) * 10) / 10;
-};
-
-const extractTags = (reviews) => {
-  const tags = new Set();
-  
-  reviews.forEach(review => {
-    if (review.tags) {
-      review.tags.split(',').forEach(tag => {
-        tags.add(tag.trim());
-      });
-    }
-  });
-  
-  return Array.from(tags).slice(0, 3);
-};
-
 const generateRandomDistance = () => {
   const distances = ['0.2km', '0.5km', '0.8km', '1.1km', '1.5km', '2.0km'];
   return distances[Math.floor(Math.random() * distances.length)];

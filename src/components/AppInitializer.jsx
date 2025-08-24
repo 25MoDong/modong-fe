@@ -44,7 +44,12 @@ const AppInitializer = ({ children }) => {
       if (showLoading || !isInitialized) return;
 
     const checkModalVisibility = () => {
-      const hideUntil = localStorage.getItem('hide_place_modal_until');
+        // 재정의 페이지에서는 모달을 표시하지 않음
+        if (location.pathname === '/redefinition') {
+          return;
+        }
+
+        const hideUntil = localStorage.getItem('hide_place_modal_until');
         
         if (hideUntil) {
           const hideUntilDate = new Date(hideUntil);
@@ -72,11 +77,16 @@ const AppInitializer = ({ children }) => {
       };
 
       checkModalVisibility();
-    }, [showLoading, isInitialized]);
+    }, [showLoading, isInitialized, location.pathname]);
 
     // Listen for onboarding completion so we can show the place modal
     useEffect(() => {
       const handler = () => {
+        // 재정의 페이지에서는 모달을 표시하지 않음
+        if (location.pathname === '/redefinition') {
+          return;
+        }
+
         const hideUntil = localStorage.getItem('hide_place_modal_until');
         if (hideUntil) {
           const hideUntilDate = new Date(hideUntil);
@@ -94,7 +104,7 @@ const AppInitializer = ({ children }) => {
 
       window.addEventListener('OnboardingCompleted', handler);
       return () => window.removeEventListener('OnboardingCompleted', handler);
-    }, []);
+    }, [location.pathname]);
 
 
     // Load selected user from storage and hydrate userStore

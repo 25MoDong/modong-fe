@@ -67,7 +67,7 @@ export const useMapState = () => {
 
     // Filter by viewport bounds
     filtered = filtered.filter(place => 
-      isInBounds(place.coordinates, bounds)
+      place.coordinates && isInBounds(place.coordinates, bounds)
     );
 
     return filtered;
