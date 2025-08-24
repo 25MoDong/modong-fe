@@ -31,5 +31,21 @@ export default defineConfig({
   build: {
     outDir: "dist",
     sourcemap: true,
+    // Improve chunking and reduce giant vendor bundles
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('react-dom')) return 'react-vendor';
+            if (id.includes('react-router-dom')) return 'router-vendor';
+            if (id.includes('framer-motion')) return 'motion-vendor';
+            if (id.includes('react-kakao-maps-sdk')) return 'kakao-maps-vendor';
+            if (id.includes('lucide-react')) return 'icons-vendor';
+            return 'vendor';
+          }
+        }
+      }
+    },
   },
 });

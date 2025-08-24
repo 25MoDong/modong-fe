@@ -57,7 +57,7 @@ const TestUserSelect = ({ onComplete }) => {
               {/* 프로필 이미지 */}
               <div className="rounded-full mx-auto mb-4 flex items-center justify-center">
                 <img
-                  src="images/dolmaeng.png"
+                  src="/images/dolmaeng.png"
                   alt="돌맹 프로필 이미지"
                   className="w-32 h-auto object-contain object-center"
                   draggable="false"

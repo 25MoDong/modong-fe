@@ -23,9 +23,14 @@ const ReviewComplete = () => {
 
   return (
     <div className="h-screen bg-white flex flex-col items-center justify-center max-w-sm mx-auto relative">
-      {/* 원석→보석 변환 애니메이션 */}
-      <div className="mb-8">
-        <div className="w-32 h-32 bg-gradient-to-br from-gray-400 to-gray-600 transform transition-all duration-1000 ease-in-out animate-stone-to-gem rounded-full shadow-lg"></div>
+      {/* 원석→보석 변환 애니메이션 (jem.png 최종) */}
+      <div className="mb-8 relative w-40 h-40">
+        {/* 초기 원석 상태: 흐리게/작게 시작 */}
+        <img
+          src="/images/jem.png"
+          alt="보석"
+          className="absolute inset-0 w-full h-full object-contain opacity-0 scale-75 animate-gem-reveal"
+        />
       </div>
 
       {/* 완료 메시지 */}

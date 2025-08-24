@@ -3,6 +3,8 @@ import { X, MapPin, Clock, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Toast from '../components/common/Toast';
 import { loadMapping, loadPlaceCache, saveMapping } from '../lib/favoritesStorage';
+import backend from '../lib/backend';
+import userStore from '../lib/userStore';
 
 const SavedHistory = () => {
   const [activeTab, setActiveTab] = useState('local'); // 'local' or 'outside'
@@ -16,6 +18,32 @@ const SavedHistory = () => {
 
   // load from storage on mount
   useLoadSavedPlaces(setLocalPlaces, setOutsidePlaces);
+
+  // also try to fetch user's favorite stores from backend for "outside" tab
+  useEffect(() => {
+    let mounted = true;
+    const fetchFavorites = async () => {
+      try {
+        const uid = userStore.getUserId() || localStorage.getItem('MODONG_USER_ID');
+        if (!uid) return;
+        const list = await backend.getUserStores(uid);
+        if (!mounted || !Array.isArray(list)) return;
+        const mapped = list.map((s, idx) => ({
+          id: s.storeName ? `${s.storeName}-${idx}` : String(idx),
+          name: s.storeName || s.name || s.detail || `장소 ${idx+1}`,
+          distance: s.detail || '',
+          hours: s.posX ? `${s.posX}, ${s.posY}` : '',
+          similarity: '',
+          raw: s
+        }));
+        setOutsidePlaces(mapped);
+      } catch (e) {
+        console.error('Failed to load user favorite stores:', e);
+      }
+    };
+    fetchFavorites();
+    return () => { mounted = false; };
+  }, []);
 
   const currentPlaces = activeTab === 'local' ? localPlaces : outsidePlaces;
 

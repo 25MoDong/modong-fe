@@ -96,7 +96,7 @@ const Loading = ({ onComplete }) => {
                   {/* 회색 점 - 두 번째 페이즈에서만 표시하여 애니메이션 타이밍을 문자 찌그러짐과 동기화 */}
                   {(isSecondPhase && (char === '돌' || char === '맹')) && (
                     <div
-                      className="absolute w-2 h-2 bg-gray-400 rounded-full animate-drop-dot opacity-0"
+                      className="absolute w-2 h-2 bg-primary-500 rounded-full animate-drop-dot opacity-0"
                       style={{
                         top: '-15px',
                         left: '50%',

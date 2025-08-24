@@ -1,19 +1,25 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { Suspense, lazy } from 'react';
 import Layout from './components/Layout/Layout';
-import Home from './pages/Home';
-import Map from './pages/Map';
-import Search from './pages/Search';
-import Favorites from './pages/Favorites';
-import PlaceDetail from './pages/PlaceDetail'; 
-import MyPage from './pages/MyPage';
-import WriteReview from './pages/WriteReview';
-import ReviewComplete from './pages/ReviewComplete';
-import SavedHistory from './pages/SavedHistory';
+
+// lazy-loaded pages for better code-splitting
+const Home = lazy(() => import('./pages/Home'));
+const Map = lazy(() => import('./pages/Map'));
+const Search = lazy(() => import('./pages/Search'));
+const Favorites = lazy(() => import('./pages/Favorites'));
+const PlaceDetail = lazy(() => import('./pages/PlaceDetail'));
+const MyPage = lazy(() => import('./pages/MyPage'));
+const Coupons = lazy(() => import('./pages/Coupons'));
+const CouponDetail = lazy(() => import('./pages/CouponDetail'));
+const WriteReview = lazy(() => import('./pages/WriteReview'));
+const ReviewComplete = lazy(() => import('./pages/ReviewComplete'));
+const SavedHistory = lazy(() => import('./pages/SavedHistory'));
 
 
 export default function App() {
   return (
-    <Routes>
+    <Suspense fallback={<div className="p-6">로딩 중...</div>}>
+      <Routes>
       <Route path="/" element={<Layout />}>
         <Route index element={<Home />} />
         <Route
@@ -50,13 +56,12 @@ export default function App() {
           path="my-reviews" 
           element={<div className="p-8 text-center"><h1 className="text-2xl font-semibold mb-4">내가 쓴 후기</h1><p className="text-gray-600">구현 예정입니다.</p></div>} 
         />
-        <Route 
-          path="coupons" 
-          element={<div className="p-8 text-center"><h1 className="text-2xl font-semibold mb-4">쿠폰</h1><p className="text-gray-600">구현 예정입니다.</p></div>} 
-        />
+        <Route path="coupons" element={<Coupons />} />
+        <Route path="coupons/:id" element={<CouponDetail />} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
-    </Routes>
+      </Routes>
+    </Suspense>
   );
 }

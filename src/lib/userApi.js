@@ -47,3 +47,14 @@ export const deleteUser = async (id) => {
     throw error;
   }
 };
+
+// 해당 유저 수정 (PUT /api/v1/{id})
+export const updateUser = async (id, userData) => {
+  try {
+    const response = await api.put(`/api/v1/${id}`, userData);
+    return response.data;
+  } catch (error) {
+    console.error('Failed to update user:', error);
+    throw error;
+  }
+};
