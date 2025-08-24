@@ -1,20 +1,25 @@
-// Avoid accessing `process` directly in the browser runtime where it may be undefined.
-const _env = (typeof process !== 'undefined' && process.env) ? process.env : (typeof window !== 'undefined' && window.__env ? window.__env : {});
-// If a runtime env override is provided, use it. In development (localhost) prefer relative
-// paths so Vite dev server proxy (configured in vite.config.js) handles CORS.
+// API Base URL configuration
+// Priority: Vite env var > legacy env vars > auto-detection
 let BASE = '';
-if (_env.REACT_APP_API_BASE) {
-  BASE = _env.REACT_APP_API_BASE.replace(/\/$/, '');
-} else if (_env.API_BASE) {
-  BASE = _env.API_BASE.replace(/\/$/, '');
-} else if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-  // Use relative base so Vite proxy proxies /api requests to target
-  BASE = '';
+
+// Check for Vite environment variable first
+if (import.meta.env.VITE_API_BASE) {
+  BASE = import.meta.env.VITE_API_BASE.replace(/\/$/, '');
 } else {
-  // In production, prefer relative URLs so the browser requests go to the same origin
-  // (CloudFront) which can proxy to the backend. Using an absolute http:// URL from
-  // an HTTPS-served site causes Mixed Content errors in browsers.
-  BASE = '';
+  // Fallback to legacy environment variables for backwards compatibility
+  const _env = (typeof process !== 'undefined' && process.env) ? process.env : (typeof window !== 'undefined' && window.__env ? window.__env : {});
+  
+  if (_env.REACT_APP_API_BASE) {
+    BASE = _env.REACT_APP_API_BASE.replace(/\/$/, '');
+  } else if (_env.API_BASE) {
+    BASE = _env.API_BASE.replace(/\/$/, '');
+  } else if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    // Use relative base so Vite proxy handles CORS in development
+    BASE = '';
+  } else {
+    // In production, use relative URLs so Vercel rewrites can proxy to backend
+    BASE = '';
+  }
 }
 
 async function request(path, options = {}) {
