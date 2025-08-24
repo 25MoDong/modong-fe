@@ -12,7 +12,7 @@ export default function BackBar({ onToggleLike, liked=false }) {
       >
         <ChevronLeft size={22} className="text-[#1B2340]" />
       </button>
-      <span className="text-[15px] text-[#1B2340]">가게 사진</span>
+      <span className="text-[15px] text-[#1B2340]"></span>
       
     </div>
   );

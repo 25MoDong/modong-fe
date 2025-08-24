@@ -64,7 +64,7 @@ export default function SearchBar({
       {/* dark variant일 때만 캐릭터 이미지 표시 */}
       {variant === 'dark' && (
         <img 
-          src="images/dolmaeng.png"
+          src="/images/dolmaeng.png"
           alt="돌맹이 캐릭터"
           className="absolute bottom-0 right-4 w-[89px] h-[75px] transform -translate-x-1 -translate-y-5"
           draggable="false"

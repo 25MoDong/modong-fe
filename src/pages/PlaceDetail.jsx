@@ -3,10 +3,11 @@ import { Heart, MapPin } from 'lucide-react';
 import { useRef, useMemo, useState, useEffect } from 'react';
 import api from '../lib/api';
 import backend from '../lib/backend';
+import { getStoreReviews } from '../lib/reviewApi';
 
 import BackBar from '../components/place/BackBar.jsx';
-import TagPills from '../components/common/TagPills.jsx';
 import ReviewCard from '../components/place/ReviewCard.jsx';
+import FilterTags from '../components/common/FilterTags.jsx';
 import MenuSkeleton from '../components/place/MenuSkeleton.jsx';
 
 import FavoritesPickerSheet from '../components/favorites/FavoritesPickerSheet.jsx';
@@ -42,6 +43,7 @@ export default function PlaceDetail() {
 
   const [addOpen, setAddOpen] = useState(false);
   const [place, setPlace] = useState(null);
+  const [reviewCount, setReviewCount] = useState(0);
   const location = useLocation();
 
   // 현재 placeId가 포함된 보석함 미리 체크
@@ -49,6 +51,10 @@ export default function PlaceDetail() {
     const m = loadMapping();
     setSelected(m[placeId] || []);
   }, [placeId]);
+
+  // 어디서 넘어왔는지 판단 (홈에서 state로 place 데이터를 전달하는지 확인)
+  const isFromHome = Boolean(location.state?.place);
+  const isFromMap = !isFromHome && location.pathname.includes('/place/');
 
   // Prefer place passed via navigation state (faster, accurate), otherwise load cached place
   useEffect(() => {
@@ -73,6 +79,23 @@ export default function PlaceDetail() {
 
     fetchPlace();
   }, [placeId, location.state]);
+
+  // 지도에서 넘어온 경우 해당 가게의 리뷰 개수 가져오기
+  useEffect(() => {
+    if (isFromMap && place?.id) {
+      const fetchReviewCount = async () => {
+        try {
+          const reviews = await getStoreReviews(place.id);
+          setReviewCount(Array.isArray(reviews) ? reviews.length : 0);
+        } catch (error) {
+          console.error('Failed to fetch review count:', error);
+          setReviewCount(0);
+        }
+      };
+      
+      fetchReviewCount();
+    }
+  }, [isFromMap, place?.id]);
 
   const toggleSelect = (cid) =>
     setSelected(prev => prev.includes(cid) ? prev.filter(v => v !== cid) : [...prev, cid]);
@@ -127,7 +150,7 @@ export default function PlaceDetail() {
       <div className="h-screen bg-white flex flex-col overflow-hidden">
         {/* 상단 이미지 영역 (하트 없음) */}
         <div className="relative z-0 h-[120px] w-full bg-gray-200 flex-shrink-0 overflow-hidden">
-          <BackBar title="가게 사진" />
+          <BackBar />
           {place?.image && (
             <img 
               src={place.image} 
@@ -144,7 +167,11 @@ export default function PlaceDetail() {
         }}>
         {/* 태그 */}
         <div className="px-5 pt-4">
-          <TagPills tags={place?.tags || MOCK.tags} variant="outline-navy" />
+          <FilterTags 
+            tags={place?.tags || MOCK.tags} 
+            selectedTag={null}
+            onTagSelect={(tag) => console.log('Selected tag:', tag)}
+          />
         </div>
 
         {/* 타이틀 + 아이콘 (오른쪽: 지도, 하트 순서) */}
@@ -170,11 +197,24 @@ export default function PlaceDetail() {
           </div>
         </div>
 
-        {/* 설명 */}
+        {/* 설명 - 어디서 왔는지에 따라 다른 내용 표시 */}
         <div className="px-5 mt-3 pb-4 border-b border-gray-100">
-          <p className="text-[13px] leading-5 text-gray-700">
-            {place?.desc || MOCK.desc}
-          </p>
+          {isFromHome ? (
+            // 홈에서 넘어온 경우: desc + 유사도 표시
+            <p className="text-[13px] leading-5 text-gray-700">
+              {place?.desc || MOCK.desc}
+            </p>
+          ) : isFromMap ? (
+            // 지도에서 넘어온 경우: 후기 개수 설명 표시  
+            <p className="text-[13px] leading-5 text-gray-700">
+              내 주변 돌멩이 수집가들 <span className="text-secondary-700">{reviewCount}명</span>이 방문해서 후기를 남겼어요.
+            </p>
+          ) : (
+            // 기본값
+            <p className="text-[13px] leading-5 text-gray-700">
+              {place?.desc || MOCK.desc}
+            </p>
+          )}
         </div>
 
         {/* 메뉴 (가로 스크롤) */}

@@ -21,7 +21,7 @@ export const createReview = async (reviewData) => {
     const requestBody = {
       userId: reviewData.userId,
       storeId: reviewData.placeId || reviewData.storeId,
-      content: reviewData.oneLineReview,
+      review: reviewData.oneLineReview || reviewData.content || reviewData.review,
       // Swagger에 따라 추가 필드들 매핑
     };
 
@@ -70,7 +70,9 @@ export const deleteReview = async (userId, storeId) => {
 export const updateReview = async (userId, storeId, reviewData) => {
   try {
     const requestBody = {
-      content: reviewData.oneLineReview,
+      userId,
+      storeId,
+      review: reviewData.oneLineReview || reviewData.content || reviewData.review,
       // Swagger에 따라 추가 필드들 매핑
     };
 

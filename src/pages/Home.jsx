@@ -1,16 +1,19 @@
-import { useState, useCallback, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import OnboardingFlow from '../components/Onboarding/OnboardingFlow';
 import LocationBar from '../components/home/LocationBar';
-import SearchBar from '../components/common/SearchBar';
-import StampCard from '../components/home/StampCard';
-import SectionTitle from '../components/home/SectionTitle';
-import PlaceCards from '../components/common/PlaceCards';
+import StatusCard from '../components/home/StatusCard';
+// removed SectionTitle and PlaceCards per redesign
 import FavoritesPickerSheet from '../components/favorites/FavoritesPickerSheet.jsx';
 import AddCollectionModal from '../components/favorites/AddCollectionModal.jsx';
 import { loadCollections, loadMapping, saveMapping, addCollection, recountCollectionCounts, savePlace } from '../lib/favoritesStorage';
 import { usePlaces } from '../hooks/usePlaces';
-import TagPills from '../components/common/TagPills';
+import FilterTags from '../components/common/FilterTags';
+import PlaceSelectDropdown from '../components/common/PlaceSelectDropdown';
+import AutoSizeText from '../components/common/AutoSizeText.jsx';
+import backend from '../lib/backend';
+import userStore from '../lib/userStore';
+import { useCoupons } from '../lib/couponsStorage';
 
 
 const Home = () => {
@@ -152,6 +155,37 @@ const Home = () => {
   const [pickerPlace, setPickerPlace] = useState(null);
   const [addOpen, setAddOpen] = useState(false);
 
+  // place select dropdown
+  const [placeDropdownOpen, setPlaceDropdownOpen] = useState(false);
+  const [selectedPlace, setSelectedPlace] = useState(null);
+  const placeContainerRef = useRef(null);
+  const [placeCategories, setPlaceCategories] = useState([]);
+
+  const handleOpenPlaceDropdown = useCallback(() => {
+    setPlaceDropdownOpen(true);
+  }, []);
+
+  const handleSelectPlace = useCallback((place) => {
+    setSelectedPlace(place);
+    // fetch place details and categories if possible
+    (async () => {
+      try {
+        const detail = await backend.getStoreByNameDetail(place, '');
+        if (!detail) return setPlaceCategories([]);
+        // prefer tags array, else category or keywords
+        if (Array.isArray(detail.tags) && detail.tags.length) return setPlaceCategories(detail.tags);
+        if (detail.category) return setPlaceCategories([detail.category]);
+        if (detail.userMood) return setPlaceCategories(Array.isArray(detail.userMood)? detail.userMood : [detail.userMood]);
+        // fallback: derive simple tags from name
+        const derived = place.split(/\s|\-/).slice(0,4).map(s => s.replace(/\W+/g,'')).filter(Boolean);
+        setPlaceCategories(derived);
+      } catch (e) {
+        setPlaceCategories([]);
+      }
+    })();
+    // optional: could trigger filtering or selection side-effects here
+  }, []);
+
   const openPickerForPlace = useCallback((place, liked) => {
     if (!place || !place.id) return;
     // If unliking, remove from all collections immediately and do not open picker
@@ -197,6 +231,34 @@ const Home = () => {
     setAddOpen(false);
   }, []);
 
+  // status counts
+  const [stampCount, setStampCount] = useState(0);
+  const [coupons] = useCoupons();
+
+  const loadStampCount = useCallback(async () => {
+    try {
+      const uid = userStore.getUserId();
+      if (!uid) return setStampCount(0);
+      const user = await backend.getUserById(uid);
+      if (user && typeof user.user_stamp === 'number') setStampCount(user.user_stamp);
+      else setStampCount(Number(user?.user_stamp) || 0);
+    } catch (err) {
+      console.error('Failed to load user stamp', err);
+      setStampCount(0);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadStampCount();
+    const onUserChanged = () => loadStampCount();
+    window.addEventListener('UserChanged', onUserChanged);
+    window.addEventListener('OnboardingCompleted', onUserChanged);
+    return () => {
+      window.removeEventListener('UserChanged', onUserChanged);
+      window.removeEventListener('OnboardingCompleted', onUserChanged);
+    };
+  }, [loadStampCount]);
+
   if(needsOnboarding){
     return <OnboardingFlow onComplete={handleOnboardingComplete} />
   }
@@ -204,55 +266,82 @@ const Home = () => {
   return (
     <div className="bg-white h-full flex flex-col">
       <div className="flex-1 overflow-y-auto no-scrollbar px-4 sm:px-6 pt-4 pb-6">
-        <LocationBar hasContainer={false} />
+        {/* Top row: location + brand */}
+        <div className="flex items-center justify-between">
+          <LocationBar hasContainer={false} />
+          <div className="text-[24px] font-medium" style={{ fontFamily: 'KCC-Hanbit, sans-serif' }}>돌맹돌맹</div>
+        </div>
 
-        {/* variant -> dark, light 지정 시 검색창 테마 변경 */}
-        <SearchBar variant='' clickable={true} />
-
-        {/* 스탬프 카드 */}
-        <StampCard onWrite={handleWriteReview} />
-
-        {/* 섹션 타이틀 */}
-        <SectionTitle title="최애 장소 기반 추천" subtitle="00님의 최근 데이터를 바탕으로 좋아하실 곳을 뽑아봤어요!"/>
-
-        {/* 가로 스크롤 카드 (카드 너비 150 / 높이 170) */}
-        {loading ? (
-          <div className="mt-3 flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+        {/* Status cards (stamp, coupon) + Hero */}
+        <div className="mt-4">
+          <div className="flex gap-3 justify-center">
+            <StatusCard type="stamp" count={stampCount} />
+            <StatusCard type="coupon" count={coupons.length} />
           </div>
-        ) : (
-          <PlaceCards 
-            places={places.slice(0, 6)} // 최대 6개 표시
-            variant="default"
-            layout="scroll"
-            className="mt-3"
-            onLikeToggle={openPickerForPlace}
-          />
-        )}
 
-        {/* 오늘의 추천 */}
-        <SectionTitle className='mt-6' title="오늘의 추천"/>
+          <div className="relative mt-3 w-[330px] h-[193px] mx-auto">
+            <div className="absolute w-[92px] h-[77px] right-2 top-2 z-20">
+              <img alt="돌맹이" className="w-full h-full object-contain" src="/images/dolmaeng.png" />
+            </div>
 
-        {/* 날씨/온도 태그 */}
-        <TagPills 
-          className="mt-2"
-          tags={['흐림', '비가주륵주륵', '28도']}
-        />
+            <div className="absolute w-[330px] h-[143px] left-0 top-[50px] bg-[#212842] shadow-[0px_2px_4px_rgba(0,0,0,0.25)] rounded-[10px] z-10">
+              <div className="absolute left-[11px] top-[18px] w-[283px] h-[104px] flex flex-col gap-[7px]">
+                <div className="flex items-center gap-[3px] w-[146px] h-5">
+                  <div className="w-5 h-5 flex-shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#B5B5B5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevron-down" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+                  </div>
+                  <span className="font-sans font-semibold text-xs text-[#B5B5B5] whitespace-nowrap w-[123px] h-[14px]">눌러서 다른 장소 선택하기</span>
+                </div>
 
-        {/* 3열 카드 그리드 (칸 간격 12px) */}
-        {loading ? (
-          <div className="mt-3 flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                <div className="w-[283px] h-[77px] flex flex-col gap-[7px]">
+                  <div className="w-[283px] h-[44px] flex items-center gap-2">
+                    <div className="relative w-[165px]" ref={placeContainerRef}>
+                      <div onClick={handleOpenPlaceDropdown} className="relative w-[165px] h-[44px] rounded-lg px-[7px] py-2 shadow-[0px_0px_3.1px_rgba(0,0,0,0.25)] flex items-center justify-center border-3 border-[#FFC5D2] cursor-pointer hover:bg-opacity-90 transition-colors"
+                        style={{ backgroundImage: "url('/images/border/PlaceSelection.png')", backgroundSize: 'cover', backgroundPosition: 'center' }}>
+                        <AutoSizeText
+                          minFontSize={12}
+                          maxFontSize={22}
+                          containerWidth={165}
+                          containerHeight={44}
+                          className="font-kcc-hanbit text-black text-center block w-full"
+                        >
+                          {selectedPlace || '연남동 밀리커피'}
+                        </AutoSizeText>
+                      </div>
+                      <PlaceSelectDropdown
+                        isOpen={placeDropdownOpen}
+                        onClose={() => setPlaceDropdownOpen(false)}
+                        selectedPlace={selectedPlace}
+                        onSelectPlace={handleSelectPlace}
+                        containerRef={placeContainerRef}
+                      />
+                    </div>
+                    <span className="font-sans font-semibold text-[22px] text-white whitespace-nowrap w-[106px] h-[26px]">같은 분위기,</span>
+                  </div>
+
+                  <div className="w-[283px] h-[26px] font-sans font-semibold text-[22px]">
+                    <span className="text-[#FFC5D2]">우리동네</span>
+                    <span className="text-white">에서도 찾아봤어요!</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-        ) : (
-          <PlaceCards 
-            places={places.slice(6, 12)} // 다음 6개 표시
-            variant="compact"
-            layout="grid"
-            className="mt-3"
-            onLikeToggle={openPickerForPlace}
-          />
-        )}
+        </div>
+
+        {/* Category intro + filter tags */}
+        <div className="mt-5">
+          <div className="text-[12px] font-semibold text-[#B5B5B5]">{(selectedPlace || '연남 작당모의 카페') + '의 카테고리들 중 마음에 드는 것을 골라봐요!'}</div>
+          <div className="mt-3 overflow-x-auto pb-2">
+            <div className="inline-flex gap-2">
+              <FilterTags
+                tags={placeCategories && placeCategories.length ? placeCategories : ["달달한", "분위기가 좋은", "베이커리가 많은", "조용한", "음료가 맛있는"]}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Recommendations removed per design update */}
 
         {/* 백엔드 연결 에러 표시 */}
         {error && (

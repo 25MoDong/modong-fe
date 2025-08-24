@@ -14,6 +14,7 @@ export default {
         'system-ui',
         'sans-serif',
       ],
+      'kcc-hanbit': ['KCC-Hanbit', 'sans-serif'],
     },
     extend: {
       animation: {
@@ -92,12 +93,12 @@ export default {
           '100%': { transform: 'translateY(0px)', opacity: '1' },
         },
         dolHighlight: {
-          '0%': { transform: 'scale(1)', color: '#869EFF' },
+          '0%': { transform: 'scale(1)', color: '#DF9CAB' },
           '50%': { transform: 'scale(1.1)', color: '#E07A91' },
           '100%': { transform: 'scale(1)', color: '#E07A91' },
         },
         maengHighlight: {
-          '0%': { transform: 'scale(1)', color: '#869EFF' },
+          '0%': { transform: 'scale(1)', color: '#DF9CAB' },
           '50%': { transform: 'scale(1.1)', color: '#E07A91' },
           '100%': { transform: 'scale(1)', color: '#E07A91' },
         },
@@ -130,6 +131,12 @@ export default {
             boxShadow: '0 10px 30px rgba(59, 130, 246, 0.4)',
           },
         },
+      },
+      borderRadius: {
+        'wiggle': '7px',
+      },
+      backgroundImage: {
+        'wiggle-border': 'linear-gradient(white, white), repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(255, 197, 210, 0.3) 2px, rgba(255, 197, 210, 0.3) 4px)',
       },
       screens: {
         xs: '475px',
@@ -180,7 +187,22 @@ export default {
         22: '5.5rem',
         'safe-bottom': 'env(safe-area-inset-bottom)',
       },
+      borderStyle: {
+        'wiggle': 'solid',
+      },
     },
   },
-  plugins: [tailwindScrollbarHide],
+  plugins: [
+    tailwindScrollbarHide,
+    function ({ addUtilities }) {
+      addUtilities({
+        '.border-wiggle': {
+          'border-image': 'url("data:image/svg+xml,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3e%3cpath d=%27M0,10 Q25,0 50,10 T100,10 L100,90 Q75,100 50,90 T0,90 Z%27 fill=%27none%27 stroke=%27%23FFC5D2%27 stroke-width=%274%27/%3e%3c/svg%3e") 1',
+          'border-width': '3px',
+          'border-style': 'solid',
+          'border-color': '#FFC5D2',
+        },
+      });
+    },
+  ],
 };

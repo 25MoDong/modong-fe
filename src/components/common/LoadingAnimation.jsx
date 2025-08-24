@@ -61,7 +61,7 @@ export default LoadingAnimation;
 // External constant to avoid recreating array each render and satisfy eslint deps
 const BLINK_SEQUENCE = [
   '/images/dolmaeng.png',
-  '/images/frame2.png', 
+  '/images/frame2.png',
   '/images/frame3.png',
   '/images/frame2.png'
 ];

@@ -2,6 +2,7 @@ import { Map } from 'react-kakao-maps-sdk';
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import SearchBar from '../components/common/SearchBar';
+import { CATEGORY_CONFIG } from '../lib/constants';
 import AdvancedMarkerClusterer from '../components/map/AdvancedMarkerClusterer';
 import InfoWindow from '../components/map/InfoWindow';
 import SearchModal from '../components/map/SearchModal';
@@ -353,6 +354,19 @@ const MapPage = () => {
             onClick={handleSearchClick}
             showBackButton={false}
           />
+          {/* category quick filter buttons (bottom-left of searchbar) */}
+          <div className="absolute left-2 top-full mt-2 flex items-center gap-2">
+            {['restaurant','cafe'].map((key) => (
+              <button
+                key={key}
+                onClick={() => toggleFilter('categories', key)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg border shadow-sm text-sm transition-colors ${filters.categories.includes(key) ? 'bg-[#212842] text-white border-[#212842]' : 'bg-white text-gray-700 border-gray-200'}`}
+              >
+                <span className="text-lg">{CATEGORY_CONFIG[key].icon}</span>
+                <span className="font-medium">{CATEGORY_CONFIG[key].name}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Map controls - positioned at top right */}

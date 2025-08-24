@@ -1,18 +1,14 @@
+
+@import './styles/fonts.css';
 @import 'pretendard/dist/web/variable/pretendardvariable.css';
 
 @tailwind base;
+@layer base {
+  html { @apply font-sans; }
+  body { font-family: theme('fontFamily.sans'); background-color: #f9fafb; color: #111827; }
+}
 @tailwind components;
 @tailwind utilities;
-
-body {
-  font-family:
-    Pretendard Variable,
-    Pretendard,
-    -apple-system,
-    sans-serif;
-  background-color: #f9fafb;
-  color: #111827;
-}
 
 h1,
 h2,
@@ -58,3 +54,16 @@ h6 {
     @apply text-[13px] leading-[18px];
   }
 }
+
+/* StatusCard custom border using border image */
+.status-card-border {
+  /* legacy: removed in favor of SVG-based dynamic border */
+}
+
+/* ReviewComplete animations */
+@keyframes gem-reveal {
+  0% { opacity: 0; transform: scale(0.75) rotate(-10deg); filter: blur(2px); }
+  50% { opacity: 0.7; transform: scale(1.05) rotate(2deg); filter: blur(0.5px); }
+  100% { opacity: 1; transform: scale(1) rotate(0deg); filter: blur(0); }
+}
+.animate-gem-reveal { animation: gem-reveal 1200ms ease-out forwards; }

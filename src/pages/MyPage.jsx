@@ -1,7 +1,9 @@
 import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Bookmark, Edit3, FileText, Tag } from 'lucide-react';
+import { Bookmark, Edit3, FileText } from 'lucide-react';
+import { useCoupons } from '../lib/couponsStorage';
+import { Tag as TagIcon } from 'lucide-react';
 import { loadMapping, loadPlace } from '../lib/favoritesStorage';
 import { dummyPlaces } from '../lib/dummyData';
 
@@ -55,6 +57,21 @@ function usePlaceAddSaved() {
   return [saved, setSaved];
 }
 
+function CouponButton() {
+  const navigate = useNavigate();
+  const [coupons] = useCoupons();
+
+  return (
+    <button onClick={() => navigate('/coupons')} className="flex flex-col items-center focus:outline-none">
+      <div className="w-[38px] h-[38px] rounded flex items-center justify-center bg-primary-500 text-white">
+        <TagIcon size={18} />
+      </div>
+      <div className="mt-2 text-[10px] font-[600] text-[#B5B5B5]">쿠폰</div>
+      <div className="text-[10px] font-[600] text-[#FFC5D2] mt-1">({coupons.length})</div>
+    </button>
+  );
+}
+
 export default function MyPage() {
   const navigate = useNavigate();
   const [saved, setSaved] = usePlaceAddSaved();
@@ -97,7 +114,7 @@ export default function MyPage() {
         {/* Profile card */}
         <section className="bg-white rounded-3xl mt-4 px-6 py-8 relative">
           <div className="flex justify-center -mt-12">
-            <div className="w-20 h-20 rounded-full bg-secondary-400 border-2 border-primary-500 flex items-center justify-center overflow-hidden">
+              <div className="w-20 h-20 rounded-full bg-secondary-400 border-2 border-primary-500 flex items-center justify-center overflow-hidden">
               <img 
                 src="/images/dolmaeng.png" 
                 alt="프로필" 
@@ -142,13 +159,7 @@ export default function MyPage() {
               </button>
 
               {/* 쿠폰 */}
-              <button onClick={() => navigate('/coupons')} className="flex flex-col items-center focus:outline-none">
-                <div className="w-[38px] h-[38px] rounded flex items-center justify-center bg-primary-500 text-white">
-                  <Tag size={18} />
-                </div>
-                <div className="mt-2 text-[10px] font-[600] text-[#B5B5B5]">쿠폰</div>
-                <div className="text-[10px] font-[600] text-[#B5B5B5] mt-1">&nbsp;</div>
-              </button>
+              <CouponButton />
             </div>
           </div>
 
@@ -170,16 +181,14 @@ export default function MyPage() {
                 {Array.from({ length: 10 }, (_, index) => (
                   <div
                     key={index}
-                    className={`w-8 h-8 rounded-full border-2 transition-all duration-300 ${
-                      index < stampCount
-                        ? 'bg-primary-500 border-primary-500 shadow-md'
-                        : 'bg-white border-gray-300'
+                    className={`w-8 h-8 rounded-full border-2 transition-all duration-300 flex items-center justify-center overflow-hidden ${
+                      index < stampCount ? 'border-primary-500 shadow-md' : 'border-gray-300'
                     }`}
                   >
-                    {index < stampCount && (
-                      <div className="w-full h-full flex items-center justify-center text-white text-xs font-bold">
-                        ✓
-                      </div>
+                    {index < stampCount ? (
+                      <img src="/images/jem.png" alt="스탬프 보석" className="w-6 h-6 object-contain" />
+                    ) : (
+                      <div className="w-6 h-6" />
                     )}
                   </div>
                 ))}

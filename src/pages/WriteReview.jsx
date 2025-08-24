@@ -3,6 +3,9 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { ImagePlus, ChevronDown, ChevronUp, ArrowLeft } from 'lucide-react';
 import MyReviewsList from '../components/review/MyReviewsList';
 import { createReview } from '../lib/reviewApi';
+import backend from '../lib/backend';
+import userStore from '../lib/userStore';
+import { updateUser } from '../lib/userApi';
 
 const WriteReview = () => {
   const navigate = useNavigate();
@@ -163,7 +166,29 @@ const WriteReview = () => {
       // 실제 API 호출로 후기 저장
       await createReview(apiData);
       showToastMessage('후기가 성공적으로 작성되었습니다!');
-      
+
+      // 후기 작성 성공 시 사용자 스탬프를 1 올려 서버에 반영
+      try {
+        const uid = localStorage.getItem('MODONG_USER_ID') || userStore?.getUserId?.() || '1';
+        const user = await backend.getUserById(uid);
+        if (user) {
+          const newStamp = (Number(user.user_stamp) || 0) + 1;
+          // Build a body merging existing known fields to avoid overwriting
+          const payload = {
+            id: user.id || uid,
+            address: user.address || '',
+            userMood: Array.isArray(user.userMood) ? user.userMood.join('\n') : (user.userMood || ''),
+            user_stamp: newStamp
+          };
+          await updateUser(uid, payload);
+          // notify other parts of app to refresh user data
+          window.dispatchEvent(new CustomEvent('UserChanged', { detail: { ...user, user_stamp: newStamp } }));
+        }
+      } catch (e) {
+        // non-fatal: log and continue
+        console.error('Failed to increment user stamp:', e);
+      }
+
       // 잠시 후 완료 페이지로 이동
       setTimeout(() => {
         navigate('/review-complete');

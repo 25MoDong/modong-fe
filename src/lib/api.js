@@ -11,7 +11,10 @@ if (_env.REACT_APP_API_BASE) {
   // Use relative base so Vite proxy proxies /api requests to target
   BASE = '';
 } else {
-  BASE = 'http://3.36.49.60:8080';
+  // In production, prefer relative URLs so the browser requests go to the same origin
+  // (CloudFront) which can proxy to the backend. Using an absolute http:// URL from
+  // an HTTPS-served site causes Mixed Content errors in browsers.
+  BASE = '';
 }
 
 async function request(path, options = {}) {
