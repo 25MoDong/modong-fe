@@ -1,4 +1,4 @@
-import api from './api';
+import api, { encodePathSegment as encSeg } from './api';
 
 /**
  * 가게/장소 관련 API 함수들 (OpenAPI v6 스펙 준수)
@@ -21,7 +21,7 @@ export const getAllStores = async () => {
 // OpenAPI: GET /api/v6/{storeId}
 export const getStoreById = async (storeId) => {
   try {
-    const res = await api.get(`/api/v6/${storeId}`);
+    const res = await api.get(`/api/v6/${encSeg(storeId)}`);
     const store = res.data || res;
     return normalizeStore(store);
   } catch (error) {
@@ -65,14 +65,14 @@ export const createStore = async (payload) => {
 
 // OpenAPI: PUT /api/v6/{storeId}
 export const updateStore = async (storeId, payload) => {
-  const res = await api.put(`/api/v6/${storeId}`, payload);
+  const res = await api.put(`/api/v6/${encSeg(storeId)}`, payload);
   const store = res.data || res;
   return normalizeStore(store);
 };
 
 // OpenAPI: DELETE /api/v6/{storeId}
 export const deleteStore = async (storeId) => {
-  await api.delete(`/api/v6/${storeId}`);
+  await api.delete(`/api/v6/${encSeg(storeId)}`);
   return true;
 };
 

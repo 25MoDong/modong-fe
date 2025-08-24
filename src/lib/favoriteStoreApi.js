@@ -1,4 +1,4 @@
-import api from './api';
+import api, { encodePathSegment as encSeg } from './api';
 
 /**
  * 유저 최애에 대한 API 함수들 - Swagger API에 맞게 구현
@@ -30,7 +30,7 @@ export const getUserFavoriteStores = async (userId) => {
 // 특정 가게 찜 목록 조회 (GET /api/v5/store/{storeName})
 export const getStoreFavorites = async (storeName) => {
   try {
-    const response = await api.get(`/api/v5/store/${storeName}`);
+    const response = await api.get(`/api/v5/store/${encSeg(storeName)}`);
     return response.data;
   } catch (error) {
     console.error('Failed to fetch store favorites:', error);
@@ -41,7 +41,7 @@ export const getStoreFavorites = async (storeName) => {
 // 특정 가게 찜 상세 정보 조회 (GET /api/v5/store/{storeName}/{detail})
 export const getStoreFavoriteDetail = async (storeName, detail) => {
   try {
-    const response = await api.get(`/api/v5/store/${storeName}/${detail}`);
+    const response = await api.get(`/api/v5/store/${encSeg(storeName)}/${encSeg(detail)}`);
     return response.data;
   } catch (error) {
     console.error('Failed to fetch store favorite detail:', error);
@@ -63,7 +63,7 @@ export const addFavoriteStore = async (favoriteData) => {
 // 찜 삭제 (DELETE /api/v5/delete/{storeName}/{detail})
 export const deleteFavoriteStore = async (storeName, detail) => {
   try {
-    const response = await api.delete(`/api/v5/delete/${storeName}/${detail}`);
+    const response = await api.delete(`/api/v5/delete/${encSeg(storeName)}/${encSeg(detail)}`);
     return response.data;
   } catch (error) {
     console.error('Failed to delete favorite store:', error);

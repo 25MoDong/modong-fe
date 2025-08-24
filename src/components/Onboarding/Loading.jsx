@@ -29,7 +29,9 @@ const Loading = ({ onComplete }) => {
   const text = '돌아다니면서 맹글어보는';
 
   return (
-    <div className="relative w-full h-screen bg-secondary-500">
+    // Use `h-full` so the loading overlay is constrained to the layout container
+    // instead of covering the entire browser viewport.
+    <div className="relative w-full h-full bg-secondary-500">
       
   <style>{`@font-face {
     font-family: 'KCC-Hanbit';
