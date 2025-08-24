@@ -112,30 +112,52 @@ const MapPage = () => {
 
   // Handle marker click
   const handleMarkerClick = useCallback((place) => {
-    // Pause tracking when user manually selects a marker
-    setIsTrackingPaused(true);
-    
-    // Clear tracking state to prevent re-activation
-    setCurrentVisiblePlace(null);
-    
-    // Handle individual place marker click with smooth animation
-    if (mapInstance) {
-      // Use dynamic offset calculation based on current zoom level
-      animateToMarker(mapInstance, place.coordinates, viewport.zoom);
-      
-      // Set selected place without adjustView to avoid double movement
-      selectPlace(place, { adjustView: false });
-    } else {
-      // Fallback if map instance not available
-      selectPlace(place);
-    }
-    
-    // Resume tracking after a delay to allow user interaction
-    if (markerPauseTimeoutRef.current) clearTimeout(markerPauseTimeoutRef.current);
-    markerPauseTimeoutRef.current = setTimeout(() => {
-      setIsTrackingPaused(false);
-      markerPauseTimeoutRef.current = null;
-    }, 3000); // 3 seconds pause
+    (async () => {
+      try {
+        console.log('handleMarkerClick received place:', place);
+
+        // Pause tracking when user manually selects a marker
+        setIsTrackingPaused(true);
+        setCurrentVisiblePlace(null);
+
+        // Unwrap cluster wrapper if needed to get the raw place object
+        const raw = place?.data || (Array.isArray(place?.places) && place.places[0]) || place;
+
+        if (mapInstance && raw?.coordinates) {
+          animateToMarker(mapInstance, raw.coordinates, viewport.zoom);
+        }
+
+        // Optimistic selection: show lightweight raw place immediately if available
+        if (raw) selectPlace(raw, { adjustView: false });
+
+        // Try to fetch detailed, normalized place info via storeApi
+        try {
+          const storeId = raw?.id || raw?.storeId || raw?._id;
+          if (storeId) {
+            const detail = await (await import('../lib/storeApi')).getStoreById(storeId);
+            if (detail) {
+              // Ensure coordinates are preserved: backend detail may lack coordinates,
+              // but raw (geocoded) place often has them. Merge to avoid InfoWindow vanishing.
+              if ((!detail.coordinates || !detail.coordinates.lat) && raw?.coordinates) {
+                detail = { ...detail, coordinates: raw.coordinates };
+              }
+              // Preserve original id if missing
+              if (!detail.id && raw?.id) detail.id = raw.id;
+              selectPlace(detail, { adjustView: false });
+              console.log('Replaced selected place with backend normalized detail:', detail);
+            }
+          }
+        } catch (err) {
+          console.warn('Failed to fetch place detail for marker click:', err);
+        }
+      } finally {
+        if (markerPauseTimeoutRef.current) clearTimeout(markerPauseTimeoutRef.current);
+        markerPauseTimeoutRef.current = setTimeout(() => {
+          setIsTrackingPaused(false);
+          markerPauseTimeoutRef.current = null;
+        }, 3000);
+      }
+    })();
   }, [selectPlace, mapInstance, viewport.zoom]);
 
   // Handle search bar click - navigate to search page

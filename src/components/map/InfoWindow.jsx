@@ -1,7 +1,9 @@
-import { memo } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { CustomOverlayMap } from 'react-kakao-maps-sdk';
 import { Heart, MapPin, Clock, Phone, Star, X } from 'lucide-react';
 import { CATEGORY_CONFIG, PRICE_RANGES } from '../../lib/constants';
+import { getStoreReviews } from '../../lib/reviewApi';
+import { calculateDistance, formatDistance } from '../../lib/mapUtils';
 import { useNavigate } from 'react-router-dom';
 
 /**
@@ -13,15 +15,88 @@ import { useNavigate } from 'react-router-dom';
 const InfoWindow = memo(function InfoWindow({ place, onClose }) {
   const navigate = useNavigate();
   
+  // 디버그: place 객체 구조 확인
+  console.log('InfoWindow received place:', place);
+
   if (!place || place.isCluster) return null;
 
+  const [reviewCount, setReviewCount] = useState(null);
+  const [distanceText, setDistanceText] = useState('');
+
+  // 장소 데이터 정규화 - 실제 백엔드 응답 구조에 맞춤
+  const placeData = {
+    id: place.id || place.storeId || place._id,
+    name: place.name || place.storeName || place.title || place.label || '장소명 없음',
+    description: place.description || place.desc || '추천받은 장소',
+    address: place.detail || place.address?.full || place.address || '',
+    tags: Array.isArray(place.tags) ? place.tags : (place.categories || place.keywords || []),
+    distance: place.distance || place.distanceText || '',
+    coordinates: place.coordinates || place.coords || place.position || { lat: 37.5984, lng: 127.0175 }, // 성북구 중심 기본값
+    phone: place.phone || '',
+    hours: place.operatingHours || place.hours || '',
+    mainMenu: place.mainMenu || (Array.isArray(place.menu) ? place.menu[0] : '') || '',
+    category: place.category || '카페'
+  };
+
+  console.log('Normalized placeData:', placeData);
+
+  // Load review count and user distance when placeData changes
+  useEffect(() => {
+    let mounted = true;
+
+    // 1) fetch review count (store reviews)
+    (async () => {
+      try {
+        if (!placeData.id) return;
+        const reviews = await getStoreReviews(placeData.id);
+        if (!mounted) return;
+        if (Array.isArray(reviews)) setReviewCount(reviews.length);
+        else if (typeof reviews === 'number') setReviewCount(reviews);
+        else if (reviews && typeof reviews.count === 'number') setReviewCount(reviews.count);
+        else setReviewCount(0);
+      } catch (err) {
+        console.warn('Failed to load store reviews for info window:', err);
+        if (mounted) setReviewCount(0);
+      }
+    })();
+
+    // 2) compute distance to current user via geolocation
+    (async () => {
+      try {
+        if (!placeData.coordinates) return;
+        // Try navigator geolocation first
+        if (navigator && navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition((pos) => {
+            try {
+              const userCoord = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+              const km = calculateDistance(placeData.coordinates, userCoord);
+              const txt = formatDistance(km) + ' 이내';
+              if (mounted) setDistanceText(txt);
+            } catch (e) {
+              if (mounted) setDistanceText('');
+            }
+          }, (err) => {
+            // permission denied or other error - leave empty
+            console.warn('Geolocation unavailable for InfoWindow distance:', err);
+            if (mounted) setDistanceText('');
+          }, { maximumAge: 60000, timeout: 2000 });
+        }
+      } catch (e) {
+        console.warn('Failed to compute distance for InfoWindow:', e);
+        if (mounted) setDistanceText('');
+      }
+    })();
+
+    return () => { mounted = false; };
+  }, [placeData.id, placeData.coordinates]);
+
   const handleDetailClick = () => {
-    navigate(`/place/${place.id || 1}`);
+    navigate(`/place/${placeData.id || 1}`);
   };
 
   return (
     <CustomOverlayMap
-      position={place.coordinates}
+      position={placeData.coordinates}
       yAnchor={1.2}
       xAnchor={0.5}
       zIndex={10000}
@@ -77,7 +152,8 @@ const InfoWindow = memo(function InfoWindow({ place, onClose }) {
           textAlign: 'center',
           color: '#000000'
         }}>
-          {place?.desc || place?.description || '추천받은 장소'}
+          {/* Show reviewer-based certification info instead of description */}
+          {typeof reviewCount === 'number' ? `내 주변 돌멩이 수집가 ${reviewCount}명에게 인증받은 장소` : placeData.description}
         </div>
 
         {/* Left section with image placeholder */}
@@ -102,7 +178,7 @@ const InfoWindow = memo(function InfoWindow({ place, onClose }) {
           lineHeight: '13px',
           color: '#000000'
         }}>
-          {place.name || '00카페'}
+          {placeData.name}
         </div>
 
         {/* Distance */}
@@ -115,7 +191,7 @@ const InfoWindow = memo(function InfoWindow({ place, onClose }) {
           lineHeight: '12px',
           color: '#8E98A8'
         }}>
-          {place?.distance || place?.distanceText || ''}
+          {distanceText || placeData.distance}
         </div>
 
         {/* Detail link */}
@@ -147,7 +223,7 @@ const InfoWindow = memo(function InfoWindow({ place, onClose }) {
           maxWidth: '215px',
           flexWrap: 'wrap'
         }}>
-          {(place?.tags || []).slice(0,3).map((tag, idx) => (
+          {placeData.tags.slice(0,3).map((tag, idx) => (
             <div key={idx} style={{
               height: '21px',
               padding: '0 8px',

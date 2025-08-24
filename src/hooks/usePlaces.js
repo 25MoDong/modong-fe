@@ -11,34 +11,37 @@ export const usePlaces = () => {
 
   // Transform store data to place format for backward compatibility
   const transformStoreToPlace = useCallback((store) => {
+    // Parse storeMood into tags array (백엔드에서 개행으로 구분된 문자열)
+    const moodTags = store.storeMood ? store.storeMood.split('\n').filter(tag => tag.trim()) : ['인기'];
+    
     return {
-      id: store.id,
-      name: store.name,
-      title: store.name, // for compatibility
+      id: store.storeId,
+      name: store.storeName,
+      title: store.storeName, // for compatibility
       category: store.category,
-      // Keep null when missing; we'll geocode from address.detail later
-      coordinates: store.coordinates || null,
+      // coordinates will be null initially, will be geocoded from detail address
+      coordinates: null,
       address: {
-        full: store.address || '',
-        district: '강남구',
-        street: store.address
+        full: store.detail || '', // 백엔드의 detail 필드가 주소
+        district: '성북구', // 모든 데이터가 성북구로 보임
+        street: store.detail
       },
       rating: {
-        average: store.rating || 4.0,
-        count: store.reviewCount || 0
+        average: 4.0, // 기본값
+        count: 0
       },
       priceRange: '보통',
-      images: store.images || ['/images/tmp.jpg'],
-      tags: store.tags || ['인기'],
+      images: ['/images/tmp.jpg'],
+      tags: moodTags, // storeMood를 태그로 사용
       description: store.description,
-      menu: [],
+      menu: store.mainMenu ? [store.mainMenu] : [], // mainMenu를 배열로 변환
       features: {},
-      phone: store.contact?.phone,
-      website: store.website,
-      hours: store.hours,
+      phone: store.phone,
+      website: null,
+      hours: store.operatingHours,
       userInteraction: {
-        liked: store.liked || false,
-        visited: store.visited || false
+        liked: false,
+        visited: false
       }
     };
   }, []);
@@ -100,10 +103,19 @@ export const usePlaces = () => {
         out.push(p);
         continue;
       }
-      const coords = await geocodeOne(p.address?.full || '');
-      out.push({ ...p, coordinates: coords || { lat: 37.5665, lng: 126.9780 } });
+      
+      // 주소에서 지오코딩 시도 (detail, address.full, address 순으로)
+      const addressToGeocode = p.detail || p.address?.full || p.address || '';
+      console.log(`Geocoding address for ${p.name}: ${addressToGeocode}`);
+      
+      const coords = await geocodeOne(addressToGeocode);
+      const finalCoords = coords || { lat: 37.5984, lng: 127.0175 }; // 성북구 중심 좌표로 기본값 설정
+      
+      out.push({ ...p, coordinates: finalCoords });
+      console.log(`Geocoded ${p.name}: ${finalCoords.lat}, ${finalCoords.lng}`);
+      
       // Basic throttling to be gentle with rate limits
-      await new Promise(r => setTimeout(r, 60));
+      await new Promise(r => setTimeout(r, 100)); // 100ms로 조금 더 여유
     }
     return out;
   };

@@ -44,8 +44,8 @@ const AppInitializer = ({ children }) => {
       if (showLoading || !isInitialized) return;
 
     const checkModalVisibility = () => {
-        // 재정의 페이지에서는 모달을 표시하지 않음
-        if (location.pathname === '/redefinition') {
+        // 홈페이지에서만 모달 표시
+        if (location.pathname !== '/') {
           return;
         }
 
@@ -82,8 +82,8 @@ const AppInitializer = ({ children }) => {
     // Listen for onboarding completion so we can show the place modal
     useEffect(() => {
       const handler = () => {
-        // 재정의 페이지에서는 모달을 표시하지 않음
-        if (location.pathname === '/redefinition') {
+        // 홈페이지에서만 모달 표시
+        if (location.pathname !== '/') {
           return;
         }
 
@@ -105,6 +105,13 @@ const AppInitializer = ({ children }) => {
       window.addEventListener('OnboardingCompleted', handler);
       return () => window.removeEventListener('OnboardingCompleted', handler);
     }, [location.pathname]);
+
+    // 라우트가 홈이 아닐 때는 모달을 강제로 닫기
+    useEffect(() => {
+      if (location.pathname !== '/' && showPlaceModal) {
+        setShowPlaceModal(false);
+      }
+    }, [location.pathname, showPlaceModal]);
 
 
     // Load selected user from storage and hydrate userStore

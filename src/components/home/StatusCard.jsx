@@ -11,7 +11,7 @@ const StatusCard = ({ type, count = 0 }) => {
 
       {/* background image based card */}
       <div className="absolute left-0 top-[17px] w-[152px] h-[73px]">
-        <div className="w-full h-full bg-[url('/statusCard.png')] bg-contain bg-bottom bg-no-repeat rounded-[10px] p-[10px] box-border relative">
+        <div className="w-full h-full bg-[url('/images/border/statusCard.png')] bg-contain bg-bottom bg-no-repeat rounded-[10px] p-[10px] box-border relative">
           <div className="mb-[6px] text-center">
             <AutoSizeText
               minFontSize={9}

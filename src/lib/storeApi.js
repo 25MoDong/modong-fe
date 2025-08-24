@@ -79,21 +79,31 @@ export const deleteStore = async (storeId) => {
 // 정규화: 백엔드 스키마(StoreResponseDto)를 프런트 공용 형태로 변환
 function normalizeStore(s) {
   if (!s) return s;
-  // Note: backend provides address in `detail` string. We geocode later if no coords.
+  
+  console.log('Normalizing store:', s); // 디버그 로그
+  
+  // 실제 백엔드 응답 구조에 맞춤
   return {
-    id: s.storeId || s.id,
-    name: s.storeName || s.name,
+    id: s.storeId || s.id || s._id,
+    storeId: s.storeId || s.id || s._id, // 호환성 유지
+    name: s.storeName || s.name || s.title || s.store || '',
+    storeName: s.storeName || s.name || s.title || s.store || '', // 호환성 유지
     category: s.category || '기타',
-    address: s.detail || s.address,
+    address: s.detail || s.address || s.address?.full || '',
+    detail: s.detail || s.address || '', // InfoWindow에서 사용
     description: s.description,
+    phone: s.phone,
+    operatingHours: s.operatingHours,
+    mainMenu: s.mainMenu,
     images: s.images || [],
-    tags: toTags(s.storeMood),
-    rating: s.rating,
-    reviewCount: s.reviewCount,
+    tags: toTags(s.storeMood || s.tags || s.storeMood),
+    storeMood: s.storeMood || s.tags || s.storeMood, // 원본 데이터도 유지
+    rating: s.rating || 4.0,
+    reviewCount: s.reviewCount || 0,
     contact: { phone: s.phone },
-    hours: s.operatingHours ? { isOpen: true, todayHours: s.operatingHours } : undefined,
+    hours: s.operatingHours,
     // 좌표 정보가 스펙에 없다면 null로 두고, 클라이언트에서 지오코딩 수행
-    coordinates: s.coordinates || null,
+    coordinates: s.coordinates || (s.location ? { lat: s.location.lat, lng: s.location.lng } : null) || null,
   };
 }
 
