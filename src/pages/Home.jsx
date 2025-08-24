@@ -315,25 +315,6 @@ const Home = () => {
         <div className="flex items-center justify-between">
           <LocationBar hasContainer={false} />
           <div className="flex items-center gap-2">
-            {process.env.NODE_ENV === 'development' && (
-              <button
-                onClick={() => {
-                  localStorage.removeItem('onboarding_completed');
-                  localStorage.removeItem('redefinition_completed');
-                  localStorage.removeItem('user_data');
-                  window.location.reload();
-                }}
-                className="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
-              >
-                리셋
-              </button>
-            )}
-            <button
-              onClick={() => navigate('/redefinition')}
-              className="px-3 py-1 text-xs bg-primary-500 text-white rounded-full hover:bg-primary-600 transition-colors"
-            >
-              재정의
-            </button>
             <div className="text-[24px] font-medium" style={{ fontFamily: 'KCC-Hanbit, sans-serif' }}>돌맹돌맹</div>
           </div>
         </div>
