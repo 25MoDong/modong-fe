@@ -1,4 +1,4 @@
-import api from './api';
+import api, { encodePathSegment as encSeg } from './api';
 
 /**
  * 후기 관련 API 함수들 - 실제 Swagger API 엔드포인트에 맞게 구현
@@ -7,7 +7,7 @@ import api from './api';
 // 내가 작성한 모든 후기 조회 (GET /api/v2/userReview/{userId})
 export const getMyReviews = async (userId) => {
   try {
-    const response = await api.get(`/api/v2/userReview/${userId}`);
+    const response = await api.get(`/api/v2/userReview/${encSeg(userId)}`);
     return response.data;
   } catch (error) {
     console.error('Failed to fetch my reviews:', error);
@@ -60,7 +60,7 @@ export const getAllReviews = async () => {
 // 특정 가게의 모든 후기 조회 (GET /api/v2/storeReview/{storeId})
 export const getStoreReviews = async (storeId) => {
   try {
-    const response = await api.get(`/api/v2/storeReview/${storeId}`);
+    const response = await api.get(`/api/v2/storeReview/${encSeg(storeId)}`);
     return response.data;
   } catch (error) {
     console.error('Failed to fetch store reviews:', error);
@@ -71,7 +71,7 @@ export const getStoreReviews = async (storeId) => {
 // 사용자의 해당 가게 리뷰 삭제 (DELETE /api/v2/deleteReview/{userId}/{storeId})
 export const deleteReview = async (userId, storeId) => {
   try {
-    const response = await api.delete(`/api/v2/deleteReview/${userId}/${storeId}`);
+    const response = await api.delete(`/api/v2/deleteReview/${encSeg(userId)}/${encSeg(storeId)}`);
     return response.data;
   } catch (error) {
     console.error('Failed to delete review:', error);
@@ -89,7 +89,7 @@ export const updateReview = async (userId, storeId, reviewData) => {
       // Swagger에 따라 추가 필드들 매핑
     };
 
-    const response = await api.put(`/api/v2/updateReview/${userId}/${storeId}`, requestBody);
+    const response = await api.put(`/api/v2/updateReview/${encSeg(userId)}/${encSeg(storeId)}`, requestBody);
     return response.data;
   } catch (error) {
     console.error('Failed to update review:', error);

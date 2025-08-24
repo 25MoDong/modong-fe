@@ -141,28 +141,42 @@ const SavedHistory = () => {
       // Try deleting via backend favorite store API (if raw data available),
       // otherwise fall back to localStorage removal
       try {
-        const raw = placeToDelete.raw;
-        if (raw && raw.storeName && raw.detail) {
-          await deleteFavoriteStore(raw.storeName, raw.detail);
-        } else if (raw && raw.storeName) {
-          // best-effort deletion by storeName only
-          await deleteFavoriteStore(raw.storeName, raw.detail || '');
-        } else {
-          throw new Error('No backend keys to delete favorite');
+        const raw = placeToDelete?.raw || {};
+        // prefer explicit keys for deletion; if not available, try best-effort by storeName only
+        if (raw && raw.storeName) {
+          try {
+            await deleteFavoriteStore(raw.storeName, raw.detail || '');
+          } catch (errDelete) {
+            // log and continue to fallback
+            console.warn('Backend delete failed, will fallback to local removal', errDelete);
+          }
         }
-        setOutsidePlaces(prev => prev.filter(place => place.id !== placeToDelete.id));
+
+        // Ensure local fallback removal too (handle various id shapes)
+        try {
+          const rawJson = localStorage.getItem('favorite_places') || '[]';
+          const arr = JSON.parse(rawJson);
+          const targetId = placeToDelete?.id != null ? String(placeToDelete.id) : null;
+          const filtered = arr.filter(p => {
+            if (!targetId) return true; // nothing to compare
+            try {
+              return String(p.id) !== targetId && String(p.storeName || p.name || '') !== targetId;
+            } catch (_) {
+              return true;
+            }
+          });
+          localStorage.setItem('favorite_places', JSON.stringify(filtered));
+        } catch (errLocal) {
+          // ignore localStorage errors
+          console.warn('Failed to update local favorite_places during deletion fallback', errLocal);
+        }
+
+        setOutsidePlaces(prev => (prev || []).filter(place => String(place.id) !== String(placeToDelete.id)));
         setToastMessage('내 지역 외 장소 목록에서 삭제되었습니다.');
         setShowToast(true);
       } catch (e) {
-        // fallback to localStorage manipulation if backend deletion fails
-        try {
-          const raw = localStorage.getItem('favorite_places') || '[]';
-          const arr = JSON.parse(raw);
-          const filtered = arr.filter(p => String(p.id) !== String(placeToDelete.id));
-          localStorage.setItem('favorite_places', JSON.stringify(filtered));
-        } catch (err) {}
-        setOutsidePlaces(prev => prev.filter(place => place.id !== placeToDelete.id));
-        setToastMessage('내 지역 외 장소 목록에서 삭제되었습니다.');
+        console.error('Unexpected error while deleting favorite place', e);
+        setToastMessage('삭제 중 오류가 발생했습니다.');
         setShowToast(true);
       }
     }

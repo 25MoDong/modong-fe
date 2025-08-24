@@ -52,9 +52,9 @@ export default function PlaceDetail() {
     setSelected(m[placeId] || []);
   }, [placeId]);
 
-  // 어디서 넘어왔는지 판단 (홈에서 state로 place 데이터를 전달하는지 확인)
-  const isFromHome = Boolean(location.state?.place);
-  const isFromMap = !isFromHome && location.pathname.includes('/place/');
+  // 어디서 넘어왔는지 판단: 명시된 from 값을 우선 사용
+  const isFromHome = location.state?.from === 'home';
+  const isFromMap = location.state?.from === 'map';
 
   // Prefer place passed via navigation state (faster, accurate), otherwise load cached place
   useEffect(() => {

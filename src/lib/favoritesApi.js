@@ -9,7 +9,8 @@ import {
   createJt, 
   findJtById, 
   updateJt, 
-  deleteJt 
+  deleteJt,
+  getAllJt
 } from './jtApi';
 import { 
   createJs, 
@@ -34,35 +35,36 @@ const getCurrentUserId = () => {
 export const loadCollections = async () => {
   try {
     const userId = getCurrentUserId();
-    // 사용자별 찜 목록 조회
-    const favoriteStores = await getUserFavoriteStores(userId);
-    
-    // 집제목별로 그룹화하여 컬렉션 형태로 변환
+    // Use v3 jt listing to build collections (prefer server-side jt model)
+    const allJt = await getAllJt();
+
+    // Filter jt records by current user if possible
+    const myJt = Array.isArray(allJt)
+      ? allJt.filter(j => {
+          if (!userId) return false;
+          // try common user fields
+          return String(j.userId || j.user || j.creator || j.memberId || '') === String(userId);
+        })
+      : [];
+
     const collections = [];
-    const processedJtIds = new Set();
-    
-    if (favoriteStores && Array.isArray(favoriteStores)) {
-      for (const store of favoriteStores) {
-        if (store.jtId && !processedJtIds.has(store.jtId)) {
-          try {
-            const jtInfo = await findJtById(store.jtId);
-            const jsInfo = await getJsByJtId(store.jtId);
-            
-            collections.push({
-              id: store.jtId,
-              title: jtInfo.title || `컬렉션 ${store.jtId}`,
-              description: jtInfo.description || '',
-              count: Array.isArray(jsInfo) ? jsInfo.length : 0
-            });
-            
-            processedJtIds.add(store.jtId);
-          } catch (error) {
-            console.error(`Failed to load collection ${store.jtId}:`, error);
-          }
-        }
+    for (const jt of myJt) {
+      try {
+        const jtId = jt.jtId || jt.id || jt.jt || jt.idx || jt._id;
+        const jsInfo = jtId ? await getJsByJtId(jtId) : [];
+        collections.push({
+          id: jtId,
+          title: jt.title || jt.name || `컬렉션 ${jtId}`,
+          description: jt.description || '',
+          count: Array.isArray(jsInfo) ? jsInfo.length : 0,
+          raw: jt
+        });
+      } catch (err) {
+        console.warn('Failed to load js info for jt', jt, err);
+        collections.push({ id: jt.jtId || jt.id, title: jt.title || jt.name || '컬렉션', description: jt.description || '', count: 0, raw: jt });
       }
     }
-    
+
     return collections;
   } catch (error) {
     console.error('Failed to load collections:', error);
@@ -189,21 +191,34 @@ export const getCollectionPlaces = async (collectionId) => {
 // 장소-컬렉션 매핑 정보 조회
 export const loadMapping = async () => {
   try {
+    // Build mapping from v3/v4 data: use getAllJt + getJsByJtId
     const userId = getCurrentUserId();
-    const favoriteStores = await getUserFavoriteStores(userId);
+    const allJt = await getAllJt();
     const mapping = {};
-    
-    if (favoriteStores && Array.isArray(favoriteStores)) {
-      for (const store of favoriteStores) {
-        if (store.storeId && store.jtId) {
-          if (!mapping[store.storeId]) {
-            mapping[store.storeId] = [];
-          }
-          mapping[store.storeId].push(store.jtId);
-        }
+
+    const myJt = Array.isArray(allJt)
+      ? allJt.filter(j => {
+          if (!userId) return false;
+          return String(j.userId || j.user || j.creator || j.memberId || '') === String(userId);
+        })
+      : [];
+
+    for (const jt of myJt) {
+      const jtId = jt.jtId || jt.id || jt.jt || jt.idx || jt._id;
+      if (!jtId) continue;
+      try {
+        const jsList = await getJsByJtId(jtId) || [];
+        (jsList || []).forEach(js => {
+          const sid = js.storeId || js.store || js.id || js.storeName || js.name;
+          if (!sid) return;
+          if (!mapping[String(sid)]) mapping[String(sid)] = [];
+          mapping[String(sid)].push(jtId);
+        });
+      } catch (err) {
+        console.warn('Failed to load js list for jt', jtId, err);
       }
     }
-    
+
     return mapping;
   } catch (error) {
     console.error('Failed to load mapping:', error);

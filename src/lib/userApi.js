@@ -1,4 +1,4 @@
-import api from './api';
+import api, { encodePathSegment as encSeg } from './api';
 
 /**
  * 사용자 정보 API 함수들 - Swagger API에 맞게 구현
@@ -18,7 +18,7 @@ export const getAllUsers = async () => {
 // 해당 유저 조회 (GET /api/v1/{id})
 export const getUserById = async (id) => {
   try {
-    const response = await api.get(`/api/v1/${id}`);
+    const response = await api.get(`/api/v1/${encSeg(id)}`);
     return response.data;
   } catch (error) {
     console.error('Failed to get user by ID:', error);
@@ -40,7 +40,7 @@ export const createUser = async (userData) => {
 // 해당 유저 삭제 (DELETE /api/v1/{id})
 export const deleteUser = async (id) => {
   try {
-    const response = await api.delete(`/api/v1/${id}`);
+    const response = await api.delete(`/api/v1/${encSeg(id)}`);
     return response.data;
   } catch (error) {
     console.error('Failed to delete user:', error);
@@ -51,7 +51,7 @@ export const deleteUser = async (id) => {
 // 해당 유저 수정 (PUT /api/v1/{id})
 export const updateUser = async (id, userData) => {
   try {
-    const response = await api.put(`/api/v1/${id}`, userData);
+    const response = await api.put(`/api/v1/${encSeg(id)}`, userData);
     return response.data;
   } catch (error) {
     console.error('Failed to update user:', error);

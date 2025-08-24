@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import BottomTab from '../common/BottomTab';
-import { useEffect, useState, useCallback } from 'react';
+import FallbackLoading from '../common/FallbackLoading';
+import { useEffect, useState, useCallback, Suspense } from 'react';
 import OnboardingFlow from '../Onboarding/OnboardingFlow';
 import AppInitializer from '../AppInitializer';
 import { SearchModeProvider, useSearchModeContext } from '../../contexts/SearchModeContext';
@@ -57,7 +58,9 @@ const LayoutContent = () => {
             <AppInitializer>
               {/* Main content area - scrollable */}
               <main className="flex-1 overflow-y-auto">
-                <Outlet />
+                <Suspense fallback={<FallbackLoading message={"로딩 중..."} />}>
+                  <Outlet />
+                </Suspense>
               </main>
               
               {/* Bottom navigation - conditionally visible based on search mode */}

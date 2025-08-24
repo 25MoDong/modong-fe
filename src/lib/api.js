@@ -59,3 +59,12 @@ export default {
   delete: (path, opts) => request(path, { ...opts, method: 'DELETE' }),
   BASE,
 };
+
+// Encode a single path segment safely.
+// Some deployments (e.g., behind API Gateway) double-decode path params.
+// Toggle double-encoding with VITE_DOUBLE_ENCODE_PATHS=1 at build time.
+export const encodePathSegment = (value) => {
+  const s = String(value ?? '');
+  const double = !!(import.meta?.env && import.meta.env.VITE_DOUBLE_ENCODE_PATHS);
+  return double ? encodeURIComponent(encodeURIComponent(s)) : encodeURIComponent(s);
+};

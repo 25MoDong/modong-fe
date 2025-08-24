@@ -1,4 +1,4 @@
-import api from './api';
+import api, { encodePathSegment as encSeg } from './api';
 
 /**
  * 집매장 API 함수들 - Swagger API에 맞게 구현
@@ -7,7 +7,7 @@ import api from './api';
 // 집제목에 해당하는 매장 정보 읽기 (GET /api/v4/getJs/{jtId})
 export const getJsByJtId = async (jtId) => {
   try {
-    const response = await api.get(`/api/v4/getJs/${jtId}`);
+    const response = await api.get(`/api/v4/getJs/${encSeg(jtId)}`);
     return response.data;
   } catch (error) {
     console.error('Failed to get Js by JtId:', error);
@@ -29,7 +29,7 @@ export const createJs = async (jsData) => {
 // 집제목에 해당하는 집 매장 삭제 (DELETE /api/v4/deleteJs/{jtId}/{storeId})
 export const deleteJs = async (jtId, storeId) => {
   try {
-    const response = await api.delete(`/api/v4/deleteJs/${jtId}/${storeId}`);
+    const response = await api.delete(`/api/v4/deleteJs/${encSeg(jtId)}/${encSeg(storeId)}`);
     return response.data;
   } catch (error) {
     console.error('Failed to delete Js:', error);

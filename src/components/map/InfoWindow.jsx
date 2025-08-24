@@ -91,7 +91,8 @@ const InfoWindow = memo(function InfoWindow({ place, onClose }) {
   }, [placeData.id, placeData.coordinates]);
 
   const handleDetailClick = () => {
-    navigate(`/place/${placeData.id || 1}`);
+    // Pass the normalized place data and a marker indicating we came from the map
+    navigate(`/place/${placeData.id || 1}`, { state: { place: placeData, from: 'map' } });
   };
 
   return (

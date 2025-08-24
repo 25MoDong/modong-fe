@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { Suspense, lazy } from 'react';
+import { lazy } from 'react';
 import Layout from './components/Layout/Layout';
 
 // lazy-loaded pages for better code-splitting
@@ -20,8 +20,7 @@ const Redefinition = lazy(() => import('./components/Onboarding/Redefinition'));
 
 export default function App() {
   return (
-    <Suspense fallback={<div className="p-6">로딩 중...</div>}>
-      <Routes>
+    <Routes>
         {/* 모든 페이지들을 레이아웃 포함으로 통합 */}
         <Route path="/" element={<Layout />}>
           <Route index element={<Home />} />
@@ -66,6 +65,5 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
-    </Suspense>
   );
 }

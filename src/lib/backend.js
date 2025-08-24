@@ -1,4 +1,4 @@
-import api from './api';
+import api, { encodePathSegment as encSeg } from './api';
 
 // Backend helper wrapping documented endpoints (API_DOCUMENTATION.md)
 const backend = {
@@ -9,7 +9,7 @@ const backend = {
   },
 
   async getUserById(id) {
-    const res = await api.get('/api/v1/' + encodeURIComponent(id));
+    const res = await api.get('/api/v1/' + encSeg(id));
     return res.data;
   },
   // v6 - store API (map feature priority)
@@ -28,7 +28,7 @@ const backend = {
 
   async getStoreById(storeId) {
     // GET /api/v6/{storeId}
-    const res = await api.get('/api/v6/' + encodeURIComponent(storeId));
+    const res = await api.get('/api/v6/' + encSeg(storeId));
     return res.data;
   },
 

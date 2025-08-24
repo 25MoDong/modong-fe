@@ -101,30 +101,62 @@ const PlaceAddModal = ({ isOpen, onClose }) => {
 
     // Try backend add first
     (async () => {
-      try {
-        const uid = userStore.getUserId();
-        if (!uid) throw new Error('User not selected');
-        // API expects favorite store payload for v5; include 'detail' field
-        const payload = {
-          userId: uid,
-          storeName: name,
-          detail: address,
-          menu: menuName.trim() || '',
-          category,
-        };
-        await addFavoriteStore(payload);
-        setToastMessage('최애장소에 추가되었습니다!');
-        setShowToast(true);
-      } catch (err) {
-        console.warn('Backend add favorite failed, falling back to local storage', err);
-        const existingFavorites = JSON.parse(localStorage.getItem('favorite_places') || '[]');
-        existingFavorites.push({ id: Date.now(), ...favoritePlace });
-        localStorage.setItem('favorite_places', JSON.stringify(existingFavorites));
-        setToastMessage('최애장소에 추가되었습니다! (오프라인 저장)');
-        setShowToast(true);
-      } finally {
-        setTimeout(() => { handleClose(); }, 500);
-      }
+        try {
+          const uid = userStore.getUserId();
+          if (!uid) throw new Error('User not selected');
+          // API expects favorite store payload for v5; include 'detail' field
+          const payload = {
+            userId: uid,
+            storeName: name,
+            detail: address,
+            menu: menuName.trim() || '',
+            category,
+          };
+          const resp = await addFavoriteStore(payload);
+
+          // Try to keep a local fallback cache in sync (deduplicated).
+          try {
+            const existingFavorites = JSON.parse(localStorage.getItem('favorite_places') || '[]');
+            const keyForNew = `${payload.storeName}||${payload.detail || ''}`;
+            const normalized = existingFavorites.filter(f => `${f.storeName || f.name}||${f.address || f.detail || ''}` !== keyForNew);
+            const newEntry = {
+              id: resp?.id || resp?.storeId || `${payload.storeName}-${Date.now()}`,
+              storeName: payload.storeName,
+              name: payload.storeName,
+              address: payload.detail || '',
+              menu: payload.menu || '',
+              category: payload.category || '',
+              addedAt: new Date().toISOString(),
+              raw: resp || payload
+            };
+            normalized.push(newEntry);
+            localStorage.setItem('favorite_places', JSON.stringify(normalized));
+          } catch (errLocal) {
+            console.warn('Failed to sync local favorite cache after backend add', errLocal);
+          }
+
+          setToastMessage('최애장소에 추가되었습니다!');
+          setShowToast(true);
+        } catch (err) {
+          console.warn('Backend add favorite failed, falling back to local storage', err);
+          try {
+            const existingFavorites = JSON.parse(localStorage.getItem('favorite_places') || '[]');
+            // normalize key to deduplicate (storeName + address/detail)
+            const keyForNew = `${name}||${address || ''}`;
+            const filtered = existingFavorites.filter(f => `${f.storeName || f.name}||${f.address || f.detail || ''}` !== keyForNew);
+            const fallbackEntry = { id: `${name}-${Date.now()}`, storeName: name, name, address, menu: menuName.trim() || '', category, addedAt: new Date().toISOString(), raw: { storeName: name, detail: address } };
+            filtered.push(fallbackEntry);
+            localStorage.setItem('favorite_places', JSON.stringify(filtered));
+            setToastMessage('최애장소에 추가되었습니다! (오프라인 저장)');
+            setShowToast(true);
+          } catch (err2) {
+            console.error('Failed to save favorite locally', err2);
+            setToastMessage('찜 추가에 실패했습니다.');
+            setShowToast(true);
+          }
+        } finally {
+          setTimeout(() => { handleClose(); }, 500);
+        }
     })();
   };
 
