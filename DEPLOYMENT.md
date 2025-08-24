@@ -63,36 +63,62 @@ aws s3 sync dist/ s3://your-bucket-name --delete
 
 ### 2. CloudFront Configuration
 
-#### Option A: CloudFront Functions (Recommended)
+#### Recommended: Behavior-based routing (no code)
 
-1. Create a CloudFront Function using the code in `aws/cloudfront-functions.js`
-2. Associate it with your distribution as a **Viewer Request** function
-3. The function will:
-   - Proxy `/api/*` requests to `3.36.49.60:8080`
-   - Serve `index.html` for SPA routing
+Configure CloudFront to route API traffic via a dedicated behavior, and use the function only for SPA routing.
 
-#### Option B: Origin Request Lambda@Edge
+1) Origins
+- `S3Origin` (default): your S3 website bucket or S3 origin access
+- `ApiOrigin`: a hostname you control that proxies to the backend (see "Backend origin options" below)
 
-Create a Lambda@Edge function that handles API proxying:
+2) Behaviors (order matters)
+- Path pattern: `/api/*`
+  - Origin: `ApiOrigin`
+  - Allowed HTTP methods: `OPTIONS, GET, HEAD, POST, PUT, PATCH, DELETE`
+  - Cache policy: `CachingDisabled` (managed)
+  - Origin request policy: custom or managed that forwards:
+    - Headers: `Authorization, Origin, Content-Type, Accept, Access-Control-Request-Method, Access-Control-Request-Headers`
+    - Query strings: All
+    - Cookies: All or as needed
+  - Viewer protocol policy: `Redirect HTTP to HTTPS`
+
+- Default behavior `/*`
+  - Origin: `S3Origin`
+  - Cache policy: optimized for static assets (e.g., Managed-CachingOptimized)
+  - Viewer protocol policy: `Redirect HTTP to HTTPS`
+
+3) Function for SPA routing
+- Attach `aws/cloudfront-functions.js` as a Viewer Request function to the Default behavior only.
+- It rewrites non-asset paths to `/index.html`.
+
+4) Invalidation
+- Invalidate `/*` after deploys that change `index.html` or routing.
+
+#### Alternative: Lambda@Edge (Origin Request) for dynamic origin
+
+If you must choose origin dynamically in code, use Lambda@Edge at the Origin Request trigger. CloudFront Functions cannot change the origin.
+
+Example (note: still prefer behavior-based routing when possible):
 
 ```javascript
 exports.handler = async (event) => {
-    const request = event.Records[0].cf.request;
-    const uri = request.uri;
-    
-    if (uri.startsWith('/api/')) {
-        // Modify origin to point to backend
-        request.origin = {
-            custom: {
-                domainName: '3.36.49.60',
-                port: 8080,
-                protocol: 'http',
-                path: ''
-            }
-        };
-    }
-    
-    return request;
+  const request = event.Records[0].cf.request;
+  const uri = request.uri;
+
+  if (uri.startsWith('/api/')) {
+    request.origin = {
+      custom: {
+        domainName: 'your-proxy.example.com',
+        port: 443,
+        protocol: 'https',
+        path: ''
+      }
+    };
+    // Ensure Host header matches the new origin
+    request.headers.host = [{ key: 'host', value: 'your-proxy.example.com' }];
+  }
+
+  return request;
 };
 ```
 
@@ -136,6 +162,11 @@ exports.handler = async (event) => {
 - Zero-config deployment for most cases
 
 ### CloudFront + S3
-- Requires explicit proxy configuration (Functions or Lambda@Edge)
-- Better for high-traffic applications
-- More complex setup but better performance and caching control
+- Requires explicit proxy configuration via a `/api/*` behavior
+- CloudFront Functions for SPA routing only; use behaviors or Lambda@Edge for origin routing
+- Better for high-traffic applications with strong caching control
+
+### Backend origin options
+- API Gateway HTTP API: Create an HTTP integration to `http://3.36.49.60:8080`, deploy, and use the API Gateway hostname as `ApiOrigin`.
+- Nginx on EC2: Run a small reverse proxy that forwards `/api/` to `http://3.36.49.60:8080`. Use the EC2 public DNS or attach a domain; set that as `ApiOrigin`.
+- ALB: If the backend can be registered as a target (within your VPC), front it with an ALB and use the ALB DNS as `ApiOrigin`.

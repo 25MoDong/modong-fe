@@ -164,7 +164,8 @@ const Home = () => {
   // Load one hero favorite store from v5 and reflect its name/tags in the hero area
   useEffect(() => {
     let mounted = true;
-    (async () => {
+
+    const loadHero = async () => {
       try {
         const uid = userStore.getUserId();
         if (!uid) return;
@@ -178,8 +179,15 @@ const Home = () => {
       } catch (e) {
         // ignore and keep defaults
       }
-    })();
-    return () => { mounted = false; };
+    };
+
+    loadHero();
+
+    const onUserChanged = () => loadHero();
+    window.addEventListener('UserChanged', onUserChanged);
+    window.addEventListener('OnboardingCompleted', onUserChanged);
+
+    return () => { mounted = false; window.removeEventListener('UserChanged', onUserChanged); window.removeEventListener('OnboardingCompleted', onUserChanged); };
   }, []);
 
   const handleOpenPlaceDropdown = useCallback(() => {
@@ -187,18 +195,34 @@ const Home = () => {
   }, []);
 
   const handleSelectPlace = useCallback((place) => {
-    setSelectedPlace(place);
+    // `place` may be a string (label) or a raw object from backend. Normalize to display string.
+    let displayName = '';
+    let lookupName = '';
+    if (!place) return;
+    if (typeof place === 'string') {
+      displayName = place;
+      lookupName = place;
+    } else if (typeof place === 'object') {
+      displayName = place.storeName || place.name || place.title || place.label || JSON.stringify(place);
+      lookupName = displayName;
+    } else {
+      displayName = String(place);
+      lookupName = displayName;
+    }
+
+    setSelectedPlace(displayName);
+
     // fetch place details and categories if possible
     (async () => {
       try {
-        const detail = await backend.getStoreByNameDetail(place, '');
+        const detail = await backend.getStoreByNameDetail(lookupName, '');
         if (!detail) return setPlaceCategories([]);
         // prefer tags array, else category or keywords
         if (Array.isArray(detail.tags) && detail.tags.length) return setPlaceCategories(detail.tags);
         if (detail.category) return setPlaceCategories([detail.category]);
         if (detail.userMood) return setPlaceCategories(Array.isArray(detail.userMood)? detail.userMood : [detail.userMood]);
         // fallback: derive simple tags from name
-        const derived = place.split(/\s|\-/).slice(0,4).map(s => s.replace(/\W+/g,'')).filter(Boolean);
+        const derived = lookupName.split(/\s|\-/).slice(0,4).map(s => s.replace(/\W+/g,'')).filter(Boolean);
         setPlaceCategories(derived);
       } catch (e) {
         setPlaceCategories([]);
