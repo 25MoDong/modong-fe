@@ -1049,6 +1049,8 @@ const Home = () => {
                         onSelectPlace={handleSelectPlace}
                         notifyParentWithOpts={true}
                         containerRef={placeContainerRef}
+                        source="favorites"
+                        enableSearch={true}
                       />
                     </div>
                     <span className="font-sans font-semibold text-[22px] text-white whitespace-nowrap w-[106px] h-[26px]">같은 분위기,</span>
