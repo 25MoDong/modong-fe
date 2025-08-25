@@ -25,7 +25,7 @@ const MyReviewsList = () => {
           id: review.reviewId || review.id,
           placeId: review.storeId,
           placeName: review.storeName || `장소 ${review.storeId}`,
-          placeCategory: review.category || '카페',
+          placeCategory: review.category || '',
           rating: review.rating || 5.0,
           reviewText: review.content || review.review || review.reviewText,
           categories: review.tags ? review.tags.split(',') : ['맛있는'],

@@ -176,7 +176,7 @@ const Home = () => {
   const [isLoadingHero, setIsLoadingHero] = useState(true);
 
   // Place selection handler: normalize input, fetch details, and call AI recommend
-  const handleSelectPlace = useCallback((place) => {
+  const handleSelectPlace = useCallback((place, opts = {}) => {
     // `place` may be a string (label) or a raw object from backend. Normalize to display string.
     let displayName = '';
     let lookupName = '';
@@ -208,22 +208,42 @@ const Home = () => {
         }
 
         const cacheKey = `ai_recs_${userId || 'anon'}_${encodeURIComponent(lookupName)}`;
-        try {
-          const raw = localStorage.getItem(cacheKey);
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            const ttl = 30 * 60 * 1000; // 30 minutes
-            if (parsed && parsed.ts && (Date.now() - parsed.ts) < ttl) {
-              // Use cached results
-              if (parsed.recommendations) setRecommendations(parsed.recommendations);
-              if (parsed.placeCategories) setPlaceCategories(parsed.placeCategories);
-              if (parsed.enrichedRecommendations) setEnrichedRecommendations(parsed.enrichedRecommendations);
-              setIsLoadingRecommendations(false);
-              return; // skip API call
+        // If selection originated from the dropdown (hero button), force calling AI recommend each time
+        const force = Boolean(opts && opts.fromDropdown);
+        if (force) {
+          // remove any cached AI recommendations for this lookup so next fetch is fresh
+          try {
+            // remove the specific cache key
+            localStorage.removeItem(cacheKey);
+            // also remove any leftover ai_recs_* keys for this user to be safe
+            const prefix = `ai_recs_${userId || 'anon'}_`;
+            for (let i = 0; i < localStorage.length; i++) {
+              const k = localStorage.key(i);
+              if (k && k.startsWith('ai_recs_') && (k.startsWith(prefix) || prefix === `ai_recs_anon_`)) {
+                try { localStorage.removeItem(k); } catch (e) {}
+                // adjust index and length aren't necessary since we just continue
+              }
             }
+          } catch (e) { /* ignore */ }
+        }
+        if (!force) {
+          try {
+            const raw = localStorage.getItem(cacheKey);
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              const ttl = 30 * 60 * 1000; // 30 minutes
+              if (parsed && parsed.ts && (Date.now() - parsed.ts) < ttl) {
+                // Use cached results
+                if (parsed.recommendations) setRecommendations(parsed.recommendations);
+                if (parsed.placeCategories) setPlaceCategories(parsed.placeCategories);
+                if (parsed.enrichedRecommendations) setEnrichedRecommendations(parsed.enrichedRecommendations);
+                setIsLoadingRecommendations(false);
+                return; // skip API call
+              }
+            }
+          } catch (e) {
+            console.warn('Failed to read ai recs cache', e);
           }
-        } catch (e) {
-          console.warn('Failed to read ai recs cache', e);
         }
         // Prefer favoritePlaces match for details
         const favMatch = favoritePlaces && favoritePlaces.length ? favoritePlaces.find(fp => {
@@ -269,7 +289,9 @@ const Home = () => {
           }
 
           // Call recommend with userId as a URL parameter and the rest in the request body
-          const res = await aiApi.recommend(userId, { targetStoreName, targetDetail });
+          // New API expects body { target: string } and userId as query parameter
+          // Use the display name as the target
+          const res = await aiApi.recommend(userId, String(targetStoreName || lookupName || ''));
           // response may contain targetKeywords and results
           if (res && Array.isArray(res.targetKeywords)) {
             setPlaceCategories(res.targetKeywords);
@@ -378,7 +400,7 @@ const Home = () => {
     return () => { mounted = false; window.removeEventListener('UserChanged', onUserChanged); window.removeEventListener('OnboardingCompleted', onUserChanged); };
   }, []);
 
-  // Enrich recommendations with store details for tags
+  // Enrich recommendations with store details for tags - improved /api/v6/search logic
   useEffect(() => {
     let mounted = true;
 
@@ -389,141 +411,299 @@ const Home = () => {
         return;
       }
 
+      console.log('🔄 Starting enrichRecommendations with', recommendations.length, 'items');
+      
       try {
         setIsLoadingRecommendations(true);
-        const enrichedPromises = recommendations.map(async (rec) => {
-          // Skip if no storeId
-          if (!rec.storeId) {
-            return { ...rec, tags: rec.tags || [] };
+        const enrichedPromises = recommendations.map(async (rec, index) => {
+          console.log(`\n📍 Processing recommendation ${index + 1}/${recommendations.length}:`, {
+            storeId: rec.storeId,
+            storeName: rec.storeName,
+            name: rec.name,
+            title: rec.title,
+            originalCategory: rec.category
+          });
+
+          // Skip enrichment if no identifier available
+          if (!rec.storeId && !rec.storeName && !rec.name && !rec.title) {
+            console.log('⚠️ Skipping - no identifiable information');
+            return { ...rec, tags: rec.tags || ['분위기가 좋은'] };
           }
 
           try {
-            // Fetch store details from /api/v6/{storeId}
-            console.log(`Fetching store details for storeId: ${rec.storeId}`);
-            const storeDetail = await backend.getStoreById(rec.storeId);
-            console.log('Store detail received:', storeDetail);
+            // Enhanced search name prioritization: prefer storeName, fallback to other fields
+            const searchCandidates = [
+              rec.storeName,
+              rec.name, 
+              rec.title,
+              rec.store,
+              rec.storeId
+            ].filter(Boolean);
             
-            // Extract categories/tags from storeMood field
-            let tags = rec.tags || [];
+            let storeDetail = null;
+            let searchedName = '';
             
-            // Parse tags from storeMood if available (main source of tags)
-            if (storeDetail && storeDetail.storeMood) {
-              console.log('storeMood found:', storeDetail.storeMood);
-              // Normalize escaped newlines (literal "\\n") and actual newlines, then split
-              const rawMood = String(storeDetail.storeMood || '');
-              // First handle literal backslash sequences stored in the DB ("\\n"), then normalize real newlines
-              const normalized = rawMood
-                .replaceAll('\\r\\n', '\n')
-                .replaceAll('\\n', '\n')
-                .replace(/\r?\n/g, '\n');
-              const moodTags = normalized.split('\n')
-                .flatMap(part => part.split(/,|·|•/))
-                .map(tag => tag.trim())
-                .filter(tag => tag.length > 0);
-              console.log('Parsed mood tags:', moodTags);
-              tags = [...tags, ...moodTags];
-            }
-            
-            // Fallback: Parse categories from mainMenu if storeMood not available
-            if (tags.length === 0 && storeDetail && storeDetail.mainMenu) {
-              console.log('No storeMood found, trying mainMenu:', storeDetail.mainMenu);
-              // Extract potential category tags from mainMenu string
-              const menuItems = storeDetail.mainMenu.split(/,|\n/).map(item => item.trim()).filter(Boolean);
-              // Try to infer category tags from menu items (simplified approach)
-              const inferredTags = [];
+            // Try searching with each candidate name until we find a match
+            for (const searchName of searchCandidates) {
+              if (!searchName || typeof searchName !== 'string') continue;
               
-              if (menuItems.some(item => /커피|라떼|아메리카노|에스프레소/.test(item))) {
-                inferredTags.push('음료가 맛있는');
+              searchedName = searchName.trim();
+              if (!searchedName) continue;
+              
+              console.log(`🔍 Searching with name: "${searchedName}"`);
+              
+              try {
+                const results = await backend.searchStores(searchedName);
+                console.log(`📊 Search results for "${searchedName}":`, results?.length || 0, 'items');
+                
+                if (Array.isArray(results) && results.length > 0) {
+                  // Look for exact name match first, then fallback to first result
+                  storeDetail = results.find(r => {
+                    const candidateNames = [r.storeName, r.name, r.title].filter(Boolean);
+                    return candidateNames.some(name => 
+                      name && name.toLowerCase() === searchedName.toLowerCase()
+                    );
+                  }) || results[0];
+                  
+                  console.log('✅ Found store detail:', {
+                    storeId: storeDetail.storeId || storeDetail.id,
+                    storeName: storeDetail.storeName || storeDetail.name,
+                    category: storeDetail.category || storeDetail.categoryName,
+                    hasStoreMood: Boolean(storeDetail.storeMood)
+                  });
+                  break; // Found a match, stop searching
+                }
+              } catch (searchError) {
+                console.warn(`⚠️ Search failed for "${searchedName}":`, searchError.message);
+                continue; // Try next candidate
               }
-              if (menuItems.some(item => /케이크|디저트|마카롱|쿠키/.test(item))) {
-                inferredTags.push('달달한');
+            }
+            
+            // Fallback: try getStoreById if we have storeId but search failed
+            if (!storeDetail && rec.storeId) {
+              console.log(`🔄 Fallback: trying getStoreById(${rec.storeId})`);
+              try {
+                storeDetail = await backend.getStoreById(rec.storeId);
+                console.log('✅ Fallback successful:', storeDetail ? 'Got details' : 'No details');
+              } catch (fallbackError) {
+                console.warn('⚠️ getStoreById fallback failed:', fallbackError.message);
               }
-              if (menuItems.some(item => /브런치|샐러드|토스트/.test(item))) {
-                inferredTags.push('분위기가 좋은');
+            }
+            
+            // Enhanced tag extraction with better storeMood parsing
+            let tags = Array.isArray(rec.tags) ? [...rec.tags] : [];
+            let resolvedCategory = '';
+            let resolvedStoreMood = '';
+            
+            if (storeDetail) {
+              // Extract category from multiple possible fields
+              resolvedCategory = storeDetail.category || 
+                               storeDetail.categoryName || 
+                               storeDetail.cat ||
+                               storeDetail.type ||
+                               rec.category || '';
+              
+              resolvedStoreMood = storeDetail.storeMood || 
+                                storeDetail.store_mood || 
+                                storeDetail.mood || 
+                                rec.storeMood || '';
+              
+              console.log('📊 Store data extracted:', {
+                category: resolvedCategory,
+                storeMoodLength: resolvedStoreMood?.length || 0,
+                storeMoodPreview: resolvedStoreMood ? `"${String(resolvedStoreMood).slice(0, 50)}..."` : 'none'
+              });
+              
+              // Enhanced storeMood parsing with better normalization
+              if (resolvedStoreMood) {
+                console.log('🏷️ Processing storeMood tags...');
+                
+                const rawMood = String(resolvedStoreMood);
+                // Handle various escape sequences and normalize to consistent newlines
+                const normalized = rawMood
+                  .replaceAll('\\\\r\\\\n', '\n') // Double-escaped CRLF
+                  .replaceAll('\\\\n', '\n')      // Double-escaped LF  
+                  .replaceAll('\\r\\n', '\n')     // Single-escaped CRLF
+                  .replaceAll('\\n', '\n')        // Single-escaped LF
+                  .replace(/\r\n/g, '\n')         // Actual CRLF
+                  .replace(/\r/g, '\n')           // Standalone CR
+                  .replace(/\n+/g, '\n')          // Multiple newlines to single
+                  .trim();
+                
+                // Split by multiple delimiters and clean up
+                const moodTags = normalized
+                  .split(/[\n,·•\|\-\/]+/)        // Split on newlines, commas, bullets, pipes, dashes, slashes
+                  .map(tag => tag.trim())
+                  .filter(tag => tag.length > 0 && tag.length < 20) // Filter out empty and overly long strings
+                  .filter(tag => !/^\d+$/.test(tag)) // Filter out pure numbers
+                  .slice(0, 10); // Limit to prevent excessive tags
+                
+                console.log('🏷️ Parsed storeMood tags:', moodTags);
+                tags = [...tags, ...moodTags];
               }
               
-              tags = [...tags, ...inferredTags];
-              console.log('Inferred tags from menu:', inferredTags);
+              // Enhanced menu-based tag inference
+              const mainMenu = storeDetail.mainMenu || storeDetail.menu || '';
+              if (tags.length < 2 && mainMenu) {
+                console.log('📝 Inferring tags from mainMenu:', mainMenu.slice(0, 100));
+                
+                const menuItems = String(mainMenu)
+                  .split(/[,\n\|\/]/)
+                  .map(item => item.trim())
+                  .filter(Boolean);
+                
+                const inferredTags = [];
+                const menuText = menuItems.join(' ').toLowerCase();
+                
+                // More comprehensive menu-based inference
+                if (/커피|아메리카노|라떼|에스프레소|카푸치노|마키아토/.test(menuText)) {
+                  inferredTags.push('음료가 맛있는');
+                }
+                if (/케이크|디저트|마카롱|쿠키|타르트|티라미수/.test(menuText)) {
+                  inferredTags.push('달달한');
+                }
+                if (/브런치|샐러드|토스트|샌드위치|에그베네딕트/.test(menuText)) {
+                  inferredTags.push('분위기가 좋은');
+                }
+                if (/파스타|피자|리조또|스테이크/.test(menuText)) {
+                  inferredTags.push('맛있는');
+                }
+                if (/맥주|와인|칵테일/.test(menuText)) {
+                  inferredTags.push('분위기 좋은');
+                }
+                
+                console.log('🍽️ Menu-inferred tags:', inferredTags);
+                tags = [...tags, ...inferredTags];
+              }
+            } else {
+              // Use original recommendation data if no store detail found
+              resolvedCategory = rec.category || '';
+              console.log('⚠️ No store detail found, using original data');
             }
 
-            // Use category field if still no tags
-            if (tags.length === 0 && storeDetail && storeDetail.category) {
-              console.log('No storeMood or menu tags, using category:', storeDetail.category);
-              if (storeDetail.category.includes('카페')) {
-                tags.push('분위기가 좋은', '조용한');
+            // Category-based tag enhancement
+            if (tags.length < 2) {
+              console.log('🏪 Adding category-based tags for:', resolvedCategory);
+              const categoryTags = [];
+              
+              if (resolvedCategory.includes('카페') || resolvedCategory.includes('cafe')) {
+                categoryTags.push('분위기가 좋은', '조용한');
               }
-              if (storeDetail.category.includes('베이커리')) {
-                tags.push('베이커리가 많은');
+              if (resolvedCategory.includes('베이커리') || resolvedCategory.includes('bakery')) {
+                categoryTags.push('베이커리가 많은', '달달한');
               }
+              if (resolvedCategory.includes('레스토랑') || resolvedCategory.includes('restaurant')) {
+                categoryTags.push('맛있는', '분위기 좋은');
+              }
+              if (resolvedCategory.includes('술집') || resolvedCategory.includes('바') || resolvedCategory.includes('bar')) {
+                categoryTags.push('분위기 좋은', '특별한');
+              }
+              
+              tags = [...tags, ...categoryTags];
             }
 
-            // Remove duplicates and limit to reasonable number
-            tags = [...new Set(tags)];
-            console.log('Final tags before defaults:', tags);
+            // Clean up and deduplicate tags
+            tags = [...new Set(tags)]
+              .filter(tag => tag && tag.length > 0 && tag.length < 15)
+              .slice(0, 4); // UI shows max 4 tags
 
-            // If still no tags, add some defaults based on category
+            // Final fallback for empty tags
             if (tags.length === 0) {
-              const category = rec.category || storeDetail?.category || '카페';
-              console.log('Adding default tags for category:', category);
+              const category = resolvedCategory || '기타';
+              console.log('🔧 Adding fallback tags for:', category);
+              
               if (category.includes('카페')) {
-                tags = ['분위기가 좋은', '조용한', '음료가 맛있는'];
+                tags = ['분위기가 좋은', '조용한'];
               } else if (category.includes('레스토랑')) {
-                tags = ['맛있는', '분위기 좋은'];
+                tags = ['맛있는'];
               } else {
                 tags = ['분위기가 좋은'];
               }
             }
 
-            console.log(`Final result for ${rec.storeId}:`, {
-              storeName: rec.storeName,
-              tags: tags.slice(0, 4),
-              scoreTotal: rec.scoreTotal,
-              matchScore: rec.matchScore
-            });
-
-            return {
+            const finalResult = {
               ...rec,
-              tags: tags.slice(0, 4), // Limit to 4 tags as shown in design
+              tags: tags,
+              category: resolvedCategory,
+              storeMood: resolvedStoreMood,
               storeDetail: storeDetail
             };
-          } catch (err) {
-            console.error(`Failed to fetch details for store ${rec.storeId}:`, err);
-            // Return with default tags if API call fails
-            const category = rec.category || '카페';
+
+            console.log(`✅ Enrichment complete for ${rec.storeName || rec.storeId}:`, {
+              finalTags: finalResult.tags,
+              hasCategory: Boolean(finalResult.category),
+              hasStoreMood: Boolean(finalResult.storeMood),
+              scoreTotal: finalResult.scoreTotal
+            });
+
+            return finalResult;
+            
+          } catch (enrichError) {
+            console.error(`❌ Enrichment failed for ${rec.storeName || rec.storeId}:`, enrichError);
+            
+            // Enhanced error fallback with category-aware defaults
+            const category = rec.category || '기타';
             let defaultTags = ['분위기가 좋은'];
             
             if (category.includes('카페')) {
-              defaultTags = ['분위기가 좋은', '조용한', '음료가 맛있는'];
+              defaultTags = ['분위기가 좋은', '조용한'];
             } else if (category.includes('레스토랑')) {
               defaultTags = ['맛있는', '분위기 좋은'];
+            } else if (category.includes('베이커리')) {
+              defaultTags = ['달달한', '베이커리가 많은'];
             }
             
-            return { ...rec, tags: defaultTags };
+            return { 
+              ...rec, 
+              tags: defaultTags,
+              category: category,
+              enrichmentError: enrichError.message 
+            };
           }
         });
 
+        console.log('⏳ Waiting for all enrichment promises...');
         const enrichedResults = await Promise.all(enrichedPromises);
         
         if (mounted) {
+          console.log('✅ All recommendations enriched successfully:', enrichedResults.length);
           setEnrichedRecommendations(enrichedResults);
           setIsLoadingRecommendations(false);
-          // persist enriched results to cache for faster UX when navigating back
+          
+          // Enhanced caching with error tracking
           try {
             let userId = userStore.getUserId();
             if (!userId) {
-              try { const ud = JSON.parse(localStorage.getItem('user_data') || 'null'); if (ud && (ud.id || ud.userId)) userId = ud.id || ud.userId; } catch(e){}
+              try { 
+                const ud = JSON.parse(localStorage.getItem('user_data') || 'null'); 
+                if (ud && (ud.id || ud.userId)) userId = ud.id || ud.userId; 
+              } catch(e) {
+                console.warn('Failed to parse user data for caching');
+              }
             }
             const key = `ai_recs_${userId || 'anon'}_${encodeURIComponent(selectedPlace || 'default')}`;
-            const payload = { ts: Date.now(), recommendations: recommendations, enrichedRecommendations: enrichedResults, placeCategories: placeCategories };
+            const payload = { 
+              ts: Date.now(), 
+              recommendations: recommendations, 
+              enrichedRecommendations: enrichedResults, 
+              placeCategories: placeCategories,
+              enrichmentVersion: '2.0' // Track version for cache invalidation if needed
+            };
             localStorage.setItem(key, JSON.stringify(payload));
-          } catch (e) { console.warn('Failed to persist enriched recs', e); }
+            console.log('💾 Cached enriched recommendations');
+          } catch (cacheError) { 
+            console.warn('⚠️ Failed to cache enriched recommendations:', cacheError); 
+          }
         }
-      } catch (err) {
-        console.error('Failed to enrich recommendations:', err);
+      } catch (globalError) {
+        console.error('💥 Global enrichment error:', globalError);
         if (mounted) {
+          // Provide basic fallback data
           setEnrichedRecommendations(recommendations.map(rec => ({ 
             ...rec, 
-            tags: rec.tags || ['분위기가 좋은'] 
+            tags: rec.tags || ['분위기가 좋은'],
+            category: rec.category || '',
+            enrichmentError: 'Global enrichment failed'
           })));
           setIsLoadingRecommendations(false);
         }
@@ -867,6 +1047,7 @@ const Home = () => {
                         onClose={() => setPlaceDropdownOpen(false)}
                         selectedPlace={selectedPlace}
                         onSelectPlace={handleSelectPlace}
+                        notifyParentWithOpts={true}
                         containerRef={placeContainerRef}
                       />
                     </div>
@@ -942,8 +1123,8 @@ const Home = () => {
                               <h3 className="text-[13px] font-semibold text-black leading-4 font-pretendard">
                                 {r.storeName || r.name || r.storeId || '이름 없음'}
                               </h3>
-                              <p className="text-[9px] font-semibold text-[#A2A2A2] leading-[11px] font-pretendard">
-                                {r.category || '카페'}
+                                <p className="text-[9px] font-semibold text-[#A2A2A2] leading-[11px] font-pretendard">
+                                {(r.category || r.storeDetail?.category) || ''}
                               </p>
                             </div>
                             

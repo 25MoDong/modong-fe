@@ -13,6 +13,7 @@ import { useMapState } from '../hooks/useMapState';
 import { useSearchModal } from '../hooks/useSearchModal';
 import { useSearchModeContext } from '../contexts/SearchModeContext';
 import { animateToMarker } from '../lib/mapUtils';
+import { getStoresByCategory } from '../lib/storeApi';
 import { useDebounce } from '../hooks/useDebounce';
 
 const MapPage = () => {
@@ -24,10 +25,12 @@ const MapPage = () => {
     viewport,
     selectedPlace,
     places,
+    allPlaces,
     loading,
     error,
     filters,
     showFilters,
+    bounds,
     updateViewport,
     selectPlace,
     toggleFilter,
@@ -55,6 +58,8 @@ const MapPage = () => {
   const [mapInstance, setMapInstance] = useState(null);
   const [currentVisiblePlace, setCurrentVisiblePlace] = useState(null);
   const [isTrackingPaused, setIsTrackingPaused] = useState(false);
+  const [categoryPlaces, setCategoryPlaces] = useState([]);
+  const [categoryLoading, setCategoryLoading] = useState(false);
   
   // Track if demo has already been initialized to prevent re-triggering
   const demoInitializedRef = useRef(false);
@@ -168,6 +173,58 @@ const MapPage = () => {
   const toggleShowFiltersCallback = useCallback(() => {
     setShowFilters(prev => !prev);
   }, [setShowFilters]);
+
+  // Handle quick category filter toggles (restaurant / cafe)
+  const handleCategoryToggle = useCallback(async (key) => {
+    const isActive = filters.categories.includes(key);
+
+    // If the category is currently active, simply toggle it off and clear categoryPlaces
+    if (isActive) {
+      toggleFilter('categories', key);
+      setCategoryPlaces([]);
+      return;
+    }
+
+    // Otherwise, fetch category stores first, merge coordinates from existing places if missing,
+    // then set categoryPlaces so markers render immediately, and finally update filter UI state
+    // in an exclusive manner (only one category active at a time).
+    setCategoryLoading(true);
+    try {
+      const categoryName = key === 'restaurant' ? '음식점' : '카페';
+      const stores = await getStoresByCategory(categoryName);
+
+      // Try to merge coordinates from current known places when backend category results lack them
+      const merged = (stores || []).map((s) => {
+        const copy = { ...(s || {}) };
+        if (!copy.coordinates || !copy.coordinates.lat || !copy.coordinates.lng) {
+          const match = (allPlaces || []).find(p => p.id === copy.id || p.storeId === copy.storeId || p.name === copy.name);
+          if (match && match.coordinates) copy.coordinates = match.coordinates;
+        }
+        return copy;
+      });
+
+      const withCoords = merged.filter(s => s && s.coordinates && s.coordinates.lat != null && s.coordinates.lng != null);
+      setCategoryPlaces(withCoords);
+
+      // Ensure exclusive selection: turn off any other active category filters
+      const otherActive = (filters.categories || []).filter(c => c !== key);
+      otherActive.forEach((otherKey) => {
+        toggleFilter('categories', otherKey);
+      });
+
+      // Activate the requested category if it's not already active
+      if (!filters.categories.includes(key)) {
+        toggleFilter('categories', key);
+      }
+
+      console.debug(`Loaded ${withCoords.length} category stores for ${categoryName}`);
+    } catch (err) {
+      console.error('Failed to load category stores:', err);
+      setCategoryPlaces([]);
+    } finally {
+      setCategoryLoading(false);
+    }
+  }, [filters.categories, toggleFilter, allPlaces]);
 
   // Handle search results from location state (when returning from search page)
   useEffect(() => {
@@ -329,7 +386,9 @@ const MapPage = () => {
           {/* 🎨 고급 지리적 거리 기반 마커 클러스터러 */}
           {/* 🔑 key prop 설명: React 리렌더링 최적화를 위해 줌/중심/마커수 변화 시 강제 리렌더링 */}
           <AdvancedMarkerClusterer
-            places={places}
+            // If category results are loaded, show them directly so markers appear immediately.
+            // Otherwise fall back to the normal (filtered) places from state.
+            places={categoryPlaces && categoryPlaces.length > 0 ? categoryPlaces : places}
             onMarkerClick={handleMarkerClick}
             viewport={viewport}
             mapInstance={mapInstance}
@@ -363,8 +422,9 @@ const MapPage = () => {
             {['restaurant','cafe'].map((key) => (
               <button
                 key={key}
-                onClick={() => toggleFilter('categories', key)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg border shadow-sm text-sm transition-colors ${filters.categories.includes(key) ? 'bg-[#212842] text-white border-[#212842]' : 'bg-white text-gray-700 border-gray-200'}`}
+                onClick={() => handleCategoryToggle(key)}
+                disabled={categoryLoading}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg border shadow-sm text-sm transition-colors ${filters.categories.includes(key) ? 'bg-[#212842] text-white border-[#212842]' : 'bg-white text-gray-700 border-gray-200'} ${categoryLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <span className="text-lg">{CATEGORY_CONFIG[key].icon}</span>
                 <span className="font-medium">{CATEGORY_CONFIG[key].name}</span>

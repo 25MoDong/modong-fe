@@ -7,7 +7,9 @@ const PlaceSelectDropdown = ({
   onClose, 
   selectedPlace, 
   onSelectPlace,
-  containerRef 
+  containerRef,
+  // If true, call onSelectPlace(payload, { fromDropdown: true }) so parent can force recompute
+  notifyParentWithOpts = false
 }) => {
   const dropdownRef = useRef(null);
   const [places, setPlaces] = useState([]);
@@ -68,7 +70,9 @@ const PlaceSelectDropdown = ({
 
   const handlePlaceSelect = (place) => {
     // prefer passing the raw backend object when available
-    onSelectPlace(place.raw || place.label || place);
+    const payload = place.raw || place.label || place;
+    if (notifyParentWithOpts) onSelectPlace(payload, { fromDropdown: true });
+    else onSelectPlace(payload);
     onClose();
   };
 
