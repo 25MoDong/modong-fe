@@ -276,6 +276,9 @@ const WriteReview = () => {
               selectedPlace={reviewData.selectedPlace}
               onSelectPlace={handlePlaceSelect}
               containerRef={placeButtonRef}
+              source="map"
+              mapPlaces={availablePlaces}
+              enableSearch={true}
             />
           </div>
         </div>

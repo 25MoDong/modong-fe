@@ -25,6 +25,22 @@ export const getAllLocations = async () => {
   }
 };
 
+// OpenAPI: GET /api/v7/store/{storeId} - returns posX/posY for specific store
+export const getLocationByStoreId = async (storeId) => {
+  try {
+    if (!storeId) return null;
+    const res = await api.get(`/api/v7/store/${encSeg(storeId)}`);
+    const it = res.data || res;
+    if (!it) return null;
+    // Expecting { storeId, posX, posY }
+    if (it.posX == null || it.posY == null) return null;
+    return { lat: Number(it.posY), lng: Number(it.posX) };
+  } catch (error) {
+    console.error('Failed to fetch location by storeId:', error);
+    return null;
+  }
+};
+
 // OpenAPI: GET /api/v6/{storeId}
 export const getStoreById = async (storeId) => {
   try {

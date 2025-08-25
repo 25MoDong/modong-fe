@@ -9,39 +9,58 @@ const PlaceSelectDropdown = ({
   onSelectPlace,
   containerRef,
   // If true, call onSelectPlace(payload, { fromDropdown: true }) so parent can force recompute
-  notifyParentWithOpts = false
+  notifyParentWithOpts = false,
+  // source: 'favorites' | 'map' | 'global' - determines initial list
+  source = 'favorites',
+  // when source === 'map', use this list
+  mapPlaces = [],
+  // enable free text search input (calls backend.searchStores)
+  enableSearch = false
 }) => {
   const dropdownRef = useRef(null);
   const [places, setPlaces] = useState([]);
+  const [query, setQuery] = useState('');
+  const [searching, setSearching] = useState(false);
 
-  // load saved places from backend (user's saved stores), excluding those in user's own address
+  // load initial places based on source when opened
   useEffect(() => {
     let mounted = true;
     const load = async () => {
       try {
-        const uid = userStore.getUserId();
-        let list = [];
-        if (uid) {
-          list = await backend.getUserStores(uid);
+        if (source === 'map') {
+          // use provided mapPlaces or fallback to all stores
+          if (Array.isArray(mapPlaces) && mapPlaces.length > 0) {
+            const mapped = mapPlaces.map(p => ({ label: p.storeName || p.name || p.title || '', raw: p }));
+            if (mounted) setPlaces(mapped);
+            return;
+          }
+          const all = await backend.getAllStores();
+          if (!mounted) return;
+          setPlaces((all || []).map(p => ({ label: p.storeName || p.name || p.title || '', raw: p })));
+          return;
         }
-        if (!list || list.length === 0) {
-          list = await backend.getAllStores();
+
+        if (source === 'favorites') {
+          const uid = userStore.getUserId();
+          if (uid) {
+            const list = await backend.getUserStores(uid);
+            if (!mounted) return;
+            setPlaces((list || []).map(p => ({ label: p.storeName || p.name || p.title || '', raw: p })));
+            return;
+          }
+          // no uid - fallback to all stores
+          const all = await backend.getAllStores();
+          if (!mounted) return;
+          setPlaces((all || []).map(p => ({ label: p.storeName || p.name || p.title || '', raw: p })));
+          return;
         }
-        const user = uid ? await backend.getUserById(uid) : null;
-        const addr = user?.address || user?.detail || '';
-        const filtered = (list || []).filter((s) => {
-          const detail = (s.detail || s.address || '').toString();
-          if (!addr) return true;
-          return !detail.includes(addr);
-        });
+
+        // global
+        const all = await backend.getAllStores();
         if (!mounted) return;
-        setPlaces(filtered.map(p => ({
-          label: p.storeName || p.name || p.title || p.store || p.storeId || '',
-          raw: p
-        })));
+        setPlaces((all || []).map(p => ({ label: p.storeName || p.name || p.title || '', raw: p })));
       } catch (err) {
         console.error('Failed to load places for dropdown', err);
-        // fallback to some defaults
         if (mounted) setPlaces([
           { label: '연남동 밀리커피', raw: { storeName: '연남동 밀리커피' } },
           { label: '홍대 카페 어딘가', raw: { storeName: '홍대 카페 어딘가' } },
@@ -51,7 +70,7 @@ const PlaceSelectDropdown = ({
     };
     if (isOpen) load();
     return () => { mounted = false; };
-  }, [isOpen]);
+  }, [isOpen, source, mapPlaces]);
 
   // outside click
   useEffect(() => {
@@ -65,6 +84,53 @@ const PlaceSelectDropdown = ({
     if (isOpen) document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen, onClose, containerRef]);
+
+  // Search input debounce
+  useEffect(() => {
+    if (!enableSearch || !isOpen) return;
+    const q = (query || '').trim();
+    let mounted = true;
+    let t = null;
+    const run = async () => {
+      if (!q) {
+        // reload initial list
+        try {
+          if (source === 'map' && Array.isArray(mapPlaces) && mapPlaces.length > 0) {
+            setPlaces(mapPlaces.map(p => ({ label: p.storeName || p.name || '', raw: p })));
+            return;
+          }
+          if (source === 'favorites') {
+            const uid = userStore.getUserId();
+            if (uid) {
+              const list = await backend.getUserStores(uid);
+              if (!mounted) return;
+              setPlaces((list || []).map(p => ({ label: p.storeName || p.name || '', raw: p })));
+              return;
+            }
+          }
+          const all = await backend.getAllStores();
+          if (!mounted) return;
+          setPlaces((all || []).map(p => ({ label: p.storeName || p.name || '', raw: p })));
+        } catch (e) {
+          console.warn('Failed to reload list during search clear', e);
+        }
+        return;
+      }
+      setSearching(true);
+      try {
+        const results = await backend.searchStores(q);
+        if (!mounted) return;
+        setPlaces((results || []).map(p => ({ label: p.storeName || p.name || p.title || '', raw: p })));
+      } catch (e) {
+        console.warn('SearchStores failed during typing', e);
+      } finally {
+        if (mounted) setSearching(false);
+      }
+    };
+
+    t = setTimeout(run, 300);
+    return () => { mounted = false; clearTimeout(t); };
+  }, [query, enableSearch, isOpen, source, mapPlaces]);
 
   if (!isOpen) return null;
 
@@ -82,6 +148,16 @@ const PlaceSelectDropdown = ({
       className="absolute top-full left-0 right-0 mt-1 bg-white border-2 border-[#FFC5D2] rounded-lg shadow-lg z-30 max-h-64 overflow-y-auto"
       style={{ minWidth: '200px' }}
     >
+      {enableSearch && (
+        <div className="px-3 py-2 border-b">
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="가게명으로 검색해보세요"
+            className="w-full border rounded px-3 py-2 text-sm"
+          />
+        </div>
+      )}
       <div className="absolute -top-2 left-4 w-4 h-4 bg-white border-l-2 border-t-2 border-[#FFC5D2] transform rotate-45"></div>
       <div className="py-2">
         {places.map((p, index) => (

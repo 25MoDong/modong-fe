@@ -3,7 +3,6 @@ import { X, Star, Clock, MapPin, ChevronUp, ChevronDown } from 'lucide-react';
 import { useDrag } from '../../hooks/useDrag';
 import { useSearchResultTracking } from '../../hooks/useIntersectionObserver';
 import { useSearchModeContext } from '../../contexts/SearchModeContext';
-import PerformanceMonitor from '../common/PerformanceMonitor';
 
 /**
  * Search modal component that slides up from bottom with optimized drag performance and map tracking
@@ -106,8 +105,7 @@ const SearchModal = memo(function SearchModal({
 
   return (
     <>
-      {/* Performance monitor for development */}
-      <PerformanceMonitor isDragging={isDragging} />
+      {/* Performance monitor removed for production UI */}
       
       <div 
         className="absolute inset-0 z-50 flex items-end pointer-events-none"
