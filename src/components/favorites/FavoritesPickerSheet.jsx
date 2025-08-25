@@ -1,4 +1,5 @@
 import { X, Plus, Check } from 'lucide-react';
+import { createPortal } from 'react-dom';
 
 export default function FavoritesPickerSheet({
   open,
@@ -10,9 +11,8 @@ export default function FavoritesPickerSheet({
   onSave,            // () => void
 }) {
   if (!open) return null;
-
-  return (
-    <div className="absolute inset-0 z-[60] flex items-center justify-center">
+  const sheet = (
+    <div className="absolute inset-0 z-[60] flex items-center justify-center pointer-events-auto">
       {/* dim */}
       <button
         aria-label="닫기"
@@ -110,5 +110,14 @@ export default function FavoritesPickerSheet({
       </div>
     </div>
   );
-}
 
+  // Prefer rendering inside the web-app container so the sheet is visually constrained to the app view
+  if (typeof document !== 'undefined') {
+    // Primary: portal into the webapp container so absolute positioning is relative to it
+    const container = document.getElementById('webapp-container') || document.getElementById('webapp-modal-root');
+    if (container) return createPortal(sheet, container);
+  }
+
+  // Fallback to rendering inline (should rarely happen)
+  return sheet;
+}

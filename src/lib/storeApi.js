@@ -28,9 +28,15 @@ export const getAllLocations = async () => {
 // OpenAPI: GET /api/v6/{storeId}
 export const getStoreById = async (storeId) => {
   try {
+    // Try to return cached normalized store if available and fresh
+    const cached = readStoreCache(storeId);
+    if (cached) return cached;
+
     const res = await api.get(`/api/v6/${encSeg(storeId)}`);
     const store = res.data || res;
-    return normalizeStore(store);
+    const normalized = normalizeStore(store);
+    writeStoreCache(normalized.id, normalized);
+    return normalized;
   } catch (error) {
     console.error('Failed to fetch store by ID:', error);
     return null;
@@ -43,7 +49,14 @@ export const searchStores = async (name) => {
     const res = await api.get(`/api/v6/search?name=${encodeURIComponent(name || '')}`);
     const stores = res.data || res;
     if (!Array.isArray(stores)) return [];
-    return stores.map(normalizeStore);
+    return stores.map(s => {
+      const id = s.storeId || s.id || s._id;
+      const cached = id ? readStoreCache(id) : null;
+      if (cached) return cached;
+      const norm = normalizeStore(s);
+      if (norm && norm.id) writeStoreCache(norm.id, norm);
+      return norm;
+    });
   } catch (error) {
     console.error('Failed to search stores:', error);
     return [];
@@ -56,7 +69,14 @@ export const getStoresByCategory = async (category) => {
     const res = await api.get(`/api/v6/category/${encodeURIComponent(category)}`);
     const stores = res.data || res;
     if (!Array.isArray(stores)) return [];
-    return stores.map(normalizeStore);
+    return stores.map(s => {
+      const id = s.storeId || s.id || s._id;
+      const cached = id ? readStoreCache(id) : null;
+      if (cached) return cached;
+      const norm = normalizeStore(s);
+      if (norm && norm.id) writeStoreCache(norm.id, norm);
+      return norm;
+    });
   } catch (error) {
     console.error('Failed to fetch stores by category:', error);
     return [];
@@ -67,14 +87,18 @@ export const getStoresByCategory = async (category) => {
 export const createStore = async (payload) => {
   const res = await api.post('/api/v6/createStore', payload);
   const store = res.data || res;
-  return normalizeStore(store);
+  const norm = normalizeStore(store);
+  if (norm && norm.id) writeStoreCache(norm.id, norm);
+  return norm;
 };
 
 // OpenAPI: PUT /api/v6/{storeId}
 export const updateStore = async (storeId, payload) => {
   const res = await api.put(`/api/v6/${encSeg(storeId)}`, payload);
   const store = res.data || res;
-  return normalizeStore(store);
+  const norm = normalizeStore(store);
+  if (norm && norm.id) writeStoreCache(norm.id, norm);
+  return norm;
 };
 
 // OpenAPI: DELETE /api/v6/{storeId}
@@ -86,9 +110,9 @@ export const deleteStore = async (storeId) => {
 // 정규화: 백엔드 스키마(StoreResponseDto)를 프런트 공용 형태로 변환
 function normalizeStore(s) {
   if (!s) return s;
-  
-  console.log('Normalizing store:', s); // 디버그 로그
-  
+
+  // Remove noisy debug logs; normalization can be expensive so we cache results externally
+
   // 실제 백엔드 응답 구조에 맞춤
   return {
     id: s.storeId || s.id || s._id,
@@ -139,3 +163,34 @@ const generateRandomPhone = () => {
 };
 
 // 더미 데이터 제거: v7 위치 API 실패 시 빈 배열 반환
+
+// --- simple localStorage cache for normalized stores ---
+const STORE_CACHE_PREFIX = 'MODONG_STORE_';
+const STORE_CACHE_TTL = 1000 * 60 * 60 * 24; // 24 hours
+
+function readStoreCache(storeId) {
+  if (!storeId) return null;
+  try {
+    const raw = localStorage.getItem(STORE_CACHE_PREFIX + String(storeId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !parsed.ts || !parsed.data) return null;
+    if (Date.now() - parsed.ts > STORE_CACHE_TTL) {
+      localStorage.removeItem(STORE_CACHE_PREFIX + String(storeId));
+      return null;
+    }
+    return parsed.data;
+  } catch (e) {
+    return null;
+  }
+}
+
+function writeStoreCache(storeId, normalized) {
+  if (!storeId || !normalized) return;
+  try {
+    const payload = { ts: Date.now(), data: normalized };
+    localStorage.setItem(STORE_CACHE_PREFIX + String(storeId), JSON.stringify(payload));
+  } catch (e) {
+    // ignore
+  }
+}

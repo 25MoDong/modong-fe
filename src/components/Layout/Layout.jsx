@@ -54,7 +54,7 @@ const LayoutContent = () => {
 
         {/* Mobile-first responsive container */}
         <div className="w-full max-w-sm sm:max-w-md lg:w-[390px] lg:max-w-[400px] lg:flex-shrink-0 mx-auto lg:mx-20">
-          <div className="bg-white w-full h-[100dvh] lg:h-screen lg:shadow-2xl lg:rounded-lg overflow-y-auto flex flex-col relative">
+          <div id="webapp-container" data-webapp-root className="bg-white w-full h-[100dvh] lg:h-screen lg:shadow-2xl lg:rounded-lg overflow-y-auto flex flex-col relative">
             <AppInitializer>
               {/* Main content area - scrollable */}
               <main className="flex-1 overflow-y-auto">
@@ -62,6 +62,9 @@ const LayoutContent = () => {
                   <Outlet />
                 </Suspense>
               </main>
+
+              {/* Modal root inside the web-app view so portals render within the app container (deprecated - keep for compatibility) */}
+              <div id="webapp-modal-root" className="absolute inset-0 z-[70] pointer-events-none" />
               
               {/* Bottom navigation - conditionally visible based on search mode */}
               {shouldShowNavigation && (

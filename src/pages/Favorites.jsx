@@ -30,6 +30,7 @@ import {
   togglePlaceInCollection,
   removePlaceFromCollection
 } from '../lib/favoritesApi.js';
+import Toast from '../components/common/Toast';
 
 
 export default function Favorites() {
@@ -42,6 +43,9 @@ export default function Favorites() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailCollection, setDetailCollection] = useState(null);
   const [detailPlaces, setDetailPlaces] = useState([]);
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState('success');
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -77,18 +81,37 @@ export default function Favorites() {
   const handleAddCollection = async ({ title, description }) => {
     try {
       const created = await addCollection(title, description);
-      const updatedCollections = await loadCollections();
-      setCollections(updatedCollections);
+
+      // Insert the created collection into UI immediately
+      const normalized = {
+        id: created.id,
+        title: created.title || title,
+        description: created.description || description || '',
+        count: created.count || 0,
+        raw: created.raw || created
+      };
+
+      setCollections(prev => [normalized, ...prev]);
       setOpenAdd(false);
       setPendingPlaceId(null);
+      setToastMessage('보석함이 생성되었습니다.');
+      setToastType('success');
+      setToastVisible(true);
       navigate("/favorites", { replace: true });
     } catch (error) {
       console.error('Failed to add collection:', error);
-      // API 실패 시 로컬 저장소 사용
-      const created = addLocalCollection({ title, description });
-      setCollections(await recountLocalCounts());
+      // API 실패 시 로컬 저장소 사용 as fallback
+      try {
+        const created = addLocalCollection({ title, description });
+        setCollections(await recountLocalCounts());
+      } catch (err) {
+        console.error('Failed to fallback create local collection:', err);
+      }
       setOpenAdd(false);
       setPendingPlaceId(null);
+      setToastMessage('보석함 생성에 실패했습니다.');
+      setToastType('error');
+      setToastVisible(true);
       navigate("/favorites", { replace: true });
     }
   };
@@ -283,6 +306,13 @@ export default function Favorites() {
           navigate("/favorites", { replace: true });
         }}
         onSubmit={handleAddCollection}
+      />
+
+      <Toast
+        message={toastMessage}
+        isVisible={toastVisible}
+        type={toastType}
+        onClose={() => setToastVisible(false)}
       />
 
       {/* 삭제 확인 모달 */}

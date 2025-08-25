@@ -7,8 +7,7 @@ import StatusCard from '../components/home/StatusCard';
 // removed SectionTitle and PlaceCards per redesign
 import FavoritesPickerSheet from '../components/favorites/FavoritesPickerSheet.jsx';
 import AddCollectionModal from '../components/favorites/AddCollectionModal.jsx';
-import { loadMapping, saveMapping, addCollection as addLocalCollection, recountCollectionCounts, savePlace } from '../lib/favoritesStorage';
-import { loadCollections as apiLoadCollections, addPlaceToCollection, removePlaceFromCollection, loadMapping as apiLoadMapping } from '../lib/favoritesApi';
+import { loadMapping, saveMapping, addCollection, recountCollectionCounts, savePlace } from '../lib/favoritesStorage';
 import { usePlaces } from '../hooks/usePlaces';
 import FilterTags from '../components/common/FilterTags';
 import PlaceSelectDropdown from '../components/common/PlaceSelectDropdown';
@@ -159,7 +158,6 @@ const Home = () => {
   const [pickerSelectedIds, setPickerSelectedIds] = useState([]);
   const [addOpen, setAddOpen] = useState(false);
   const [pickerPlace, setPickerPlace] = useState(null);
-  const [favoritesMap, setFavoritesMap] = useState(() => loadMapping());
 
   // place select dropdown
   const [placeDropdownOpen, setPlaceDropdownOpen] = useState(false);
@@ -198,33 +196,6 @@ const Home = () => {
     (async () => {
       try {
         setIsLoadingRecommendations(true);
-        // Try to reuse cached recommendations to avoid re-running AI every navigation
-        let userId = userStore.getUserId();
-        if (!userId) {
-          try {
-            const ud = JSON.parse(localStorage.getItem('user_data') || 'null');
-            if (ud && (ud.id || ud.userId)) userId = ud.id || ud.userId;
-          } catch (e) { /* ignore */ }
-        }
-
-        const cacheKey = `ai_recs_${userId || 'anon'}_${encodeURIComponent(lookupName)}`;
-        try {
-          const raw = localStorage.getItem(cacheKey);
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            const ttl = 30 * 60 * 1000; // 30 minutes
-            if (parsed && parsed.ts && (Date.now() - parsed.ts) < ttl) {
-              // Use cached results
-              if (parsed.recommendations) setRecommendations(parsed.recommendations);
-              if (parsed.placeCategories) setPlaceCategories(parsed.placeCategories);
-              if (parsed.enrichedRecommendations) setEnrichedRecommendations(parsed.enrichedRecommendations);
-              setIsLoadingRecommendations(false);
-              return; // skip API call
-            }
-          }
-        } catch (e) {
-          console.warn('Failed to read ai recs cache', e);
-        }
         // Prefer favoritePlaces match for details
         const favMatch = favoritePlaces && favoritePlaces.length ? favoritePlaces.find(fp => {
           const n = (fp.storeName || fp.name || fp.title || '').toString();
@@ -283,11 +254,6 @@ const Home = () => {
 
           if (res && Array.isArray(res.results)) {
             setRecommendations(res.results);
-            // Save raw recommendations to cache (enrichment will save enriched results later)
-            try {
-              const payload = { ts: Date.now(), recommendations: res.results, placeCategories: Array.isArray(res.targetKeywords) ? res.targetKeywords : [] };
-              localStorage.setItem(cacheKey, JSON.stringify(payload));
-            } catch (e) { console.warn('Failed to write ai recs cache', e); }
           } else {
             setRecommendations([]);
           }
@@ -507,16 +473,6 @@ const Home = () => {
         if (mounted) {
           setEnrichedRecommendations(enrichedResults);
           setIsLoadingRecommendations(false);
-          // persist enriched results to cache for faster UX when navigating back
-          try {
-            let userId = userStore.getUserId();
-            if (!userId) {
-              try { const ud = JSON.parse(localStorage.getItem('user_data') || 'null'); if (ud && (ud.id || ud.userId)) userId = ud.id || ud.userId; } catch(e){}
-            }
-            const key = `ai_recs_${userId || 'anon'}_${encodeURIComponent(selectedPlace || 'default')}`;
-            const payload = { ts: Date.now(), recommendations: recommendations, enrichedRecommendations: enrichedResults, placeCategories: placeCategories };
-            localStorage.setItem(key, JSON.stringify(payload));
-          } catch (e) { console.warn('Failed to persist enriched recs', e); }
         }
       } catch (err) {
         console.error('Failed to enrich recommendations:', err);
@@ -561,56 +517,14 @@ const Home = () => {
   }, []);
 
   const pickerSave = useCallback(() => {
-    (async () => {
-      if (!pickerPlace) {
-        setPickerOpen(false);
-        return;
-      }
-
-      // current mapping before changes
-      const map = loadMapping();
-      const before = new Set(map[String(pickerPlace.id)] || []);
-      const after = new Set(pickerSelectedIds || []);
-
-      // additions
-      for (const cid of after) {
-        if (!before.has(cid)) {
-          try {
-            await addPlaceToCollection(String(pickerPlace.id), cid);
-          } catch (err) {
-            console.warn('Failed to add place to collection via API', err);
-            // fallback: update local cache
-            const localCreated = null;
-          }
-        }
-      }
-
-      // removals
-      for (const cid of before) {
-        if (!after.has(cid)) {
-          try {
-            await removePlaceFromCollection(String(pickerPlace.id), cid);
-          } catch (err) {
-            console.warn('Failed to remove place from collection via API', err);
-          }
-        }
-      }
-
-      // Update local mapping cache to reflect the current selection
-      const newMap = loadMapping();
-      newMap[String(pickerPlace.id)] = Array.from(after);
-      try { saveMapping(newMap); } catch (e) {}
-      // update local state for immediate UI reflection
-      setFavoritesMap(newMap);
-
-      // save place cache for quick lookup
-      try { savePlace(pickerPlace); } catch (e) {}
-
-      // refresh local collection counts
-      setPickerCollections(recountCollectionCounts());
-      setPickerOpen(false);
-      setPickerPlace(null);
-    })();
+    if (pickerPlace && pickerSelectedIds.length > 0) {
+      // Save the place to selected collections
+      pickerSelectedIds.forEach(collectionId => {
+        savePlace(collectionId, pickerPlace);
+      });
+    }
+    setPickerOpen(false);
+    setPickerPlace(null);
   }, [pickerPlace, pickerSelectedIds]);
 
   const handleCreateNewCollection = useCallback(() => setAddOpen(true), []);
@@ -624,53 +538,12 @@ const Home = () => {
   }, []);
 
   // Heart/Like functionality
-  // Helper to resolve a stable place id for recommendation items
-  const resolvePlaceId = (item) => {
-    return item?.storeId || item?.id || item?.placeId || item?.storeDetail?.storeId || item?.storeDetail?.id || null;
-  };
-
-  const handleHeartClick = useCallback(async (place, e) => {
-    console.log('Home: heart click', place && (place.storeId || place.id || place.storeName));
+  const handleHeartClick = useCallback((place, e) => {
     e?.stopPropagation(); // Prevent navigation when clicking heart
-
-    const placeId = resolvePlaceId(place);
-    if (!placeId) return; // nothing to do for items without stable id
-
-    // If currently favorited somewhere, remove from all collections (toggle off)
-    const currentMap = loadMapping();
-    const existing = Array.isArray(currentMap[String(placeId)]) ? currentMap[String(placeId)] : [];
-    if (existing.length > 0) {
-      // optimistic UI: remove locally first so user sees immediate feedback
-      const newMap = { ...currentMap };
-      delete newMap[String(placeId)];
-      try { saveMapping(newMap); } catch (e) {}
-      setFavoritesMap(newMap);
-      setPickerCollections(recountCollectionCounts());
-
-      // remove from each jtId on the server; if any removal fails, attempt to refresh mapping
-      try {
-        for (const jtId of existing) {
-          await removePlaceFromCollection(String(placeId), jtId);
-        }
-      } catch (err) {
-        console.warn('Failed to remove place from collection via API (home heart):', err);
-        // try to reload mapping from backend to reconcile state
-        try {
-          const remoteMap = await (await import('../lib/favoritesApi')).loadMapping();
-          // remoteMap is { placeId: [jtId,...] }
-          try { saveMapping(remoteMap); } catch (e) {}
-          setFavoritesMap(remoteMap);
-        } catch (err2) {
-          console.warn('Failed to refresh mapping after remove failure', err2);
-        }
-      }
-
-      return;
-    }
-
-    // Otherwise open picker to add
+    
+    // Transform recommendation data to place format for favorites
     const placeData = {
-      id: placeId,
+      id: place.storeId || place.id,
       name: place.storeName || place.name,
       title: place.storeName || place.name,
       category: place.category,
@@ -679,71 +552,12 @@ const Home = () => {
       address: place.address ? { full: place.address } : {},
       image: place.image || '/images/tmp.jpg'
     };
-
+    
     setPickerPlace(placeData);
-
-    // Load user's collections from API (preferred) and fallback to local
-    try {
-      const cols = await apiLoadCollections();
-      setPickerCollections(cols);
-    } catch (err) {
-      console.warn('Failed to load collections from API in Home picker', err);
-      setPickerCollections(recountCollectionCounts());
-    }
-
-    // Preselect collections that already contain this place
-    try {
-      const map = loadMapping();
-      const existing2 = map[String(placeId)] || [];
-      setPickerSelectedIds(existing2);
-    } catch (err) {
-      setPickerSelectedIds([]);
-    }
-
+    setPickerCollections(recountCollectionCounts());
+    setPickerSelectedIds([]);
     setPickerOpen(true);
   }, []);
-
-  // Navigate to place detail safely: resolve id and coordinates if missing
-  const handleNavigateToPlace = useCallback(async (rec) => {
-    try {
-      const possibleId = rec.storeId || rec.id || rec.placeId || rec.storeDetail?.id || rec.storeDetail?.storeId || '';
-
-      // Normalize coordinates from several possible shapes
-      const coords = rec.coordinates || rec.coord || rec.location || rec.storeDetail?.coordinates || rec.storeDetail?.location || (
-        rec.storeDetail && rec.storeDetail.lat && rec.storeDetail.lng ? { lat: rec.storeDetail.lat, lng: rec.storeDetail.lng } : undefined
-      );
-
-      const placeForNav = { ...rec, coordinates: coords };
-
-      let placeId = possibleId;
-      // If no id, try to lookup by name using backend.searchStores
-      if (!placeId) {
-        const name = rec.storeName || rec.name || rec.title || rec.label || '';
-        if (name) {
-          try {
-            const results = await backend.searchStores(name);
-            if (Array.isArray(results) && results.length > 0) {
-              const first = results[0];
-              placeId = first.storeId || first.id || '';
-              // merge coordinates if available
-              if (!placeForNav.coordinates && first.coordinates) placeForNav.coordinates = first.coordinates;
-            }
-          } catch (e) {
-            console.warn('searchStores failed while resolving place id', e);
-          }
-        }
-      }
-
-      if (!placeId) {
-        console.warn('Unable to resolve place id for navigation', rec);
-        return;
-      }
-
-      navigate(`/place/${placeId}`, { state: { place: placeForNav, from: 'home' } });
-    } catch (e) {
-      console.error('Failed to navigate to place detail', e);
-    }
-  }, [navigate]);
 
   // status counts
   const [stampCount, setStampCount] = useState(0);
@@ -772,26 +586,6 @@ const Home = () => {
       window.removeEventListener('OnboardingCompleted', onUserChanged);
     };
   }, [loadStampCount]);
-
-  // Load mapping from backend on mount so hearts reflect server state
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        // apiLoadMapping may be heavy; it returns { placeId: [jtId,...] }
-        const remote = await apiLoadMapping();
-        if (!mounted) return;
-        if (remote && typeof remote === 'object') {
-          try { saveMapping(remote); } catch (e) {}
-          setFavoritesMap(remote);
-        }
-      } catch (err) {
-        // ignore - fallback to local mapping already present
-        console.warn('Failed to load remote favorites mapping on Home mount', err);
-      }
-    })();
-    return () => { mounted = false; };
-  }, []);
 
   if(needsOnboarding){
     return <OnboardingFlow onComplete={handleOnboardingComplete} />
@@ -904,7 +698,7 @@ const Home = () => {
         {/* AI Recommendations */}
         {((enrichedRecommendations && enrichedRecommendations.length > 0) || isLoadingRecommendations) && (
           <div className="mt-4">
-
+            <div className="text-sm font-semibold mb-3">AI 추천 가게</div>
             
             {isLoadingRecommendations ? (
               <div className="min-h-[200px]">
@@ -920,7 +714,11 @@ const Home = () => {
                     {/* 메인 컨테이너 (86px 높이) */}
                     <div 
                       className="absolute top-[10px] left-0 w-[334px] h-[86px] cursor-pointer hover:bg-gray-50 transition-colors"
-                      onClick={() => handleNavigateToPlace(r)}
+                      onClick={() => {
+                        if (r.storeId) {
+                          navigate(`/place/${r.storeId}`);
+                        }
+                      }}
                     >
                       {/* Frame 39604 - 메인 콘텐츠 영역 */}
                       <div className="absolute left-[3px] top-[13px] w-[329px] h-[73px] flex justify-between items-center gap-4">
@@ -949,23 +747,15 @@ const Home = () => {
                             
                             {/* 하트 아이콘 */}
                             <button
-                              type="button"
                               onClick={(e) => handleHeartClick(r, e)}
-                              aria-label="찜하기"
-                              className="flex-none w-[28px] h-[28px] p-1 hover:bg-[#FFC5D2]/10 transition-colors flex items-center justify-center rounded-full z-10"
+                              className="flex-none w-[14px] h-[14px] hover:bg-[#FFC5D2]/10 transition-colors flex items-center justify-center rounded-sm"
                             >
-                              {(() => {
-                                const pid = r.storeId || r.id;
-                                const isFav = Boolean((favoritesMap && favoritesMap[String(pid)] || []).length);
-                                return (
-                                  <Heart
-                                    size={14}
-                                    className="text-[#FFC5D2]"
-                                    fill={isFav ? '#FFC5D2' : 'none'}
-                                    strokeWidth={2}
-                                  />
-                                );
-                              })()}
+                              <Heart 
+                                size={14} 
+                                className="text-[#FFC5D2] hover:fill-[#FFC5D2]/20"
+                                fill="none"
+                                strokeWidth={2}
+                              />
                             </button>
                           </div>
                           
@@ -1035,6 +825,13 @@ const Home = () => {
           </div>
         )}
 
+        {/* 백엔드 연결 에러 표시 */}
+        {error && (
+          <div className="mt-4 p-3 bg-yellow-100 border border-yellow-400 text-yellow-800 rounded-lg text-sm">
+            {error}
+          </div>
+        )}
+      
       {/* Favorites picker and add modal */}
       <FavoritesPickerSheet
         open={pickerOpen}
