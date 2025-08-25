@@ -3,8 +3,24 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + React</title>
+    <!-- Prevent double-tap / pinch-to-zoom on mobile to keep UI scale stable -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <link
+      rel="preload"
+      href="/fonts/KCC-Hanbit.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+
+    <title>돌맹돌맹</title>
+    <script
+      type="text/javascript"
+      src="//dapi.kakao.com/v2/maps/sdk.js?appkey=%VITE_KAKAO_API_KEY%&libraries=services,clusterer,drawing"
+    ></script>
   </head>
   <body>
     <div id="root"></div>

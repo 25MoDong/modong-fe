@@ -1,0 +1,11 @@
+@font-face {
+  font-family: 'KCC-Hanbit';
+  src: url('/fonts/KCC-Hanbit.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+.kcc-hanbit {
+  font-family: 'KCC-Hanbit', Pretendard, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+}

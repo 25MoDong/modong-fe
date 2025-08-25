@@ -1,14 +1,21 @@
+
+@import './styles/fonts.css';
+@import 'pretendard/dist/web/variable/pretendardvariable.css';
+
 @tailwind base;
+@layer base {
+  html { @apply font-sans; }
+  body { font-family: theme('fontFamily.sans'); background-color: #f9fafb; color: #111827; }
+}
 @tailwind components;
 @tailwind utilities;
 
-body {
-  font-family: system-ui, -apple-system, sans-serif;
-  background-color: #f9fafb;
-  color: #111827;
-}
-
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   font-weight: 600;
 }
 
@@ -23,3 +30,40 @@ h1, h2, h3, h4, h5, h6 {
 .card {
   @apply bg-white rounded-xl shadow-sm border border-gray-100 p-6;
 }
+
+/* 가로 스크롤바 숨김 */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@layer utilities {
+  .title-18 {
+    @apply text-[18px] leading-[22px] font-semibold;
+  }
+  .cap-11 {
+    @apply text-[11px] leading-[14px] text-gray-500;
+  }
+  .body-12 {
+    @apply text-[12px] leading-[16px];
+  }
+  .body-13 {
+    @apply text-[13px] leading-[18px];
+  }
+}
+
+/* StatusCard custom border using border image */
+.status-card-border {
+  /* legacy: removed in favor of SVG-based dynamic border */
+}
+
+/* ReviewComplete animations */
+@keyframes gem-reveal {
+  0% { opacity: 0; transform: scale(0.75) rotate(-10deg); filter: blur(2px); }
+  50% { opacity: 0.7; transform: scale(1.05) rotate(2deg); filter: blur(0.5px); }
+  100% { opacity: 1; transform: scale(1) rotate(0deg); filter: blur(0); }
+}
+.animate-gem-reveal { animation: gem-reveal 1200ms ease-out forwards; }
