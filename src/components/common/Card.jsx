@@ -15,7 +15,7 @@ import { memo } from "react";
 const Card = memo(function Card({
   id = null,
   title = '어나더굿뉴스',
-  category = '카페',
+  category = '',
   tags = ['커피'],
   liked = false,
   image = '/images/tmp.jpg',

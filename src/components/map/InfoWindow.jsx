@@ -35,7 +35,7 @@ const InfoWindow = memo(function InfoWindow({ place, onClose }) {
     phone: place.phone || '',
     hours: place.operatingHours || place.hours || '',
     mainMenu: place.mainMenu || (Array.isArray(place.menu) ? place.menu[0] : '') || '',
-    category: place.category || '카페'
+    category: place.category || (Array.isArray(place.categories) && place.categories.length ? place.categories[0] : '') || ''
   };
 
   console.log('Normalized placeData:', placeData);

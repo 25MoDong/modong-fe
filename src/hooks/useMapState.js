@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { MAP_CONFIG } from '../lib/constants';
+import { MAP_CONFIG, CATEGORY_CONFIG } from '../lib/constants';
 import { usePlaces } from './usePlaces';
 import { getBoundsFromViewport, isInBounds, calculateOptimalCenter } from '../lib/mapUtils';
 
@@ -16,7 +16,7 @@ export const useMapState = () => {
   const [selectedPlace, setSelectedPlace] = useState(null);
   
   // Use places hook for backend integration
-  const { places, loading: placesLoading, error: placesError, refreshPlaces } = usePlaces();
+  const { places: allPlaces, loading: placesLoading, error: placesError, refreshPlaces } = usePlaces();
   const [filters, setFilters] = useState({
     categories: [],
     priceRange: [],
@@ -35,13 +35,20 @@ export const useMapState = () => {
 
   // Filter places based on current filters and viewport
   const filteredPlaces = useMemo(() => {
-    let filtered = places;
+    let filtered = allPlaces;
 
     // Filter by category
     if (filters.categories.length > 0) {
-      filtered = filtered.filter(place => 
-        filters.categories.includes(place.category)
-      );
+      filtered = filtered.filter(place => {
+        // Support filter values that are either category keys (e.g. 'restaurant')
+        // or actual category names (e.g. '음식점'). If a key is provided, map
+        // it to the configured name in CATEGORY_CONFIG.
+        return filters.categories.some(f => {
+          const mappedName = CATEGORY_CONFIG[f] && CATEGORY_CONFIG[f].name;
+          if (mappedName) return place.category === mappedName;
+          return place.category === f;
+        });
+      });
     }
 
     // Filter by price range
@@ -71,7 +78,7 @@ export const useMapState = () => {
     );
 
     return filtered;
-  }, [places, filters, bounds]);
+  }, [allPlaces, filters, bounds]);
 
   // No need for manual clustering - using native MarkerClusterer
 
@@ -148,6 +155,7 @@ export const useMapState = () => {
     viewport,
     selectedPlace,
     places: filteredPlaces,
+    allPlaces,
     loading: placesLoading,
     error: placesError,
     filters,

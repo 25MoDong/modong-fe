@@ -123,7 +123,7 @@ const PlaceModal = memo(function PlaceModal({ place, isOpen, onClose }) {
             
             <div className="flex items-center gap-2">
               <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-medium">
-                {effective.category || '카페'}
+                {effective.category || effective.storeDetail?.category || ''}
               </span>
               <span className="text-sm text-gray-500">
                 300m 이내
