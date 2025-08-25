@@ -10,6 +10,8 @@ import {
 } from '../lib/favoritesStorage.js';
 import { loadCollections as apiLoadCollections, addPlaceToCollection } from '../lib/favoritesApi';
 import backend from '../lib/backend';
+import { searchStores as apiSearchStores, getAllLocations, getLocationByStoreId } from '../lib/storeApi';
+import { CATEGORY_CONFIG } from '../lib/constants';
 // suggestions will be loaded from backend stores
 
 const RECENT_SEARCHES_KEY = 'modong_recent_searches';
@@ -64,7 +66,8 @@ const Search = () => {
     saveRecentSearch(query);
     setIsLoading(true);
     try {
-      const results = await backend.searchStores(query);
+      // Use storeApi.searchStores to get normalized store objects
+      const results = await apiSearchStores(query);
       if (!results || results.length === 0) {
         setSearchResults([]);
       } else {
@@ -78,40 +81,52 @@ const Search = () => {
   }, [navigate, saveRecentSearch]);
 
   // Handle selecting a search result
-  const handleSelectResult = useCallback((result) => {
-    if (fromPage === 'map') {
-      // Navigate back to map with selected result
-      navigate('/map', {
-        state: {
-          searchResults: searchResults,
-          selectedResult: result
+  const handleSelectResult = useCallback(async (result) => {
+    // Ensure result has coordinates; if missing, try to find from v7 locations
+    let resolved = result;
+    if (!resolved || !resolved.coordinates || !resolved.coordinates.lat || !resolved.coordinates.lng) {
+      try {
+        const storeId = result.storeId || result.id || result.storeId;
+        if (storeId) {
+          const loc = await getLocationByStoreId(storeId);
+          if (loc) resolved = { ...resolved, coordinates: loc };
         }
-      });
-    } else {
-      // For home page or other sources, navigate to map
-      navigate('/map', {
-        state: {
-          searchResults: searchResults,
-          selectedResult: result
-        }
-      });
+      } catch (err) {
+        console.warn('Failed to resolve coordinates for selected result:', err);
+      }
     }
-  }, [navigate, fromPage, searchResults]);
+
+    // Navigate to map with the resolved selectedResult
+    navigate('/map', {
+      state: {
+        searchResults: searchResults,
+        selectedResult: resolved
+      }
+    });
+  }, [navigate, searchResults]);
 
   const [suggestedPlaces, setSuggestedPlaces] = useState({});
 
-  // Load suggested places from backend when no active search query
+  // Load suggested places from backend when there are no search results
   useEffect(() => {
     let mounted = true;
     const loadSuggestions = async () => {
-      if (searchQuery || searchResults.length > 0) return;
+      // Only load suggestions when there are no search results to show
+      if (searchResults && searchResults.length > 0) return;
       try {
         const stores = await backend.getAllStores();
         if (!mounted || !Array.isArray(stores)) return;
+        // Classify by explicit category field matching CATEGORY_CONFIG names
+        const cafeName = CATEGORY_CONFIG.cafe.name;
+        const restaurantName = CATEGORY_CONFIG.restaurant.name;
+        const cafeList = stores.filter(s => (s.category || '') === cafeName).slice(0, 8);
+        const restaurantList = stores.filter(s => (s.category || '') === restaurantName).slice(0, 8);
+        const others = stores.filter(s => (s.category || '' ) !== cafeName && (s.category || '' ) !== restaurantName).slice(0, 12);
         setSuggestedPlaces({
-          cafe: stores.filter(s => (s.category || '').toLowerCase().includes('카페') || (s.category || '').toLowerCase().includes('cafe')).slice(0,4),
-          restaurant: stores.filter(s => (s.category || '').toLowerCase().includes('식당') || (s.category || '').toLowerCase().includes('restaurant')).slice(0,4),
-          attraction: stores.filter(s => (s.category || '').toLowerCase().includes('관광') || (s.category || '').toLowerCase().includes('attraction')).slice(0,4)
+          cafe: cafeList,
+          restaurant: restaurantList,
+          attraction: stores.filter(s => (s.category || '').toLowerCase().includes('관광') || (s.category || '').toLowerCase().includes('attraction')).slice(0,4),
+          all: others
         });
       } catch (err) {
         console.error('Failed to load suggested places from backend', err);
@@ -120,7 +135,7 @@ const Search = () => {
     };
     loadSuggestions();
     return () => { mounted = false; };
-  }, [searchQuery, searchResults]);
+  }, [searchResults]);
 
   // Favorites picker state (for heart button)
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -240,25 +255,22 @@ const Search = () => {
             <div className="space-y-3">
               {searchResults.map((result) => (
                 <div 
-                  key={result.id}
+                  key={result.id || result.storeId}
                   onClick={() => handleSelectResult(result)}
                   className="p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
                 >
-                  <h3 className="font-medium text-gray-900">{result.name}</h3>
+                  <h3 className="font-medium text-gray-900">{result.storeName || result.name || result.title || ''}</h3>
                   <p className="text-sm text-gray-500 mt-1">
-                    {typeof result.address === 'string' ? result.address : result.address?.full || result.address?.district || '주소 정보 없음'}
+                    {result.address || result.detail || result.address?.full || result.address?.district || '주소 정보 없음'}
                   </p>
-                  {/* Rating removed per UI change request */}
                 </div>
               ))}
             </div>
           </div>
         ) : searchQuery ? (
-          // Show no results message with cute design
+          // Show no results message and suggested stores fetched from backend
           <div className="py-8 px-4">
-            {/* Dolmaeng character and speech bubble in row */}
             <div className="flex items-center gap-4 mb-8">
-              {/* Dolmaeng character */}
               <div className="flex-shrink-0">
                 <img 
                   src="/images/dolmaeng.png" 
@@ -268,68 +280,44 @@ const Search = () => {
                   style={{ WebkitUserDrag: 'none' }}
                 />
               </div>
-              
-              {/* Speech bubble from left */}
               <div className="relative bg-white rounded-2xl px-4 py-3 shadow-sm border border-gray-200 flex-1 max-w-xs">
                 <p className="text-sm text-gray-700">
                   앗! 찾으시는 <span className="text-orange-500 font-semibold">{searchQuery}</span>을<br />
                   파는 가게를 찾지 못했어요 😅
                 </p>
-                {/* Speech bubble tail pointing left */}
                 <div className="absolute left-0 top-1/2 transform -translate-x-1 -translate-y-1/2 w-3 h-3 bg-white border-l border-b border-gray-200 rotate-45"></div>
               </div>
             </div>
-            
-            {/* Suggestion text */}
-            <p className="text-center text-gray-600 text-lg font-medium mb-6">
-              대신, 이런건 어떠세요?
-            </p>
-            
-            {/* Suggested menu items with stores - render using PlaceCards beneath the menu label */}
+
+            <p className="text-center text-gray-600 text-lg font-medium mb-6">대신, 이런 가게들을 보여드릴게요</p>
+
             <div className="space-y-6">
-              {/* 추천 메뉴 리스트 */}
-              {[
-                {
-                  keyword: '바나나크림브륄레',
-                  stores: [
-                    { id: 's1', name: '카페명1', category: '종류', image: '/images/cafe1.jpg' },
-                    { id: 's2', name: '카페명2', category: '종류', image: '/images/cafe2.jpg' },
-                    { id: 's3', name: '카페명3', category: '종류', image: '/images/cafe3.jpg' }
-                  ]
-                },
-                {
-                  keyword: '바나나 스무디',
-                  stores: [
-                    { id: 's4', name: '카페명4', category: '종류', image: '/images/cafe4.jpg' },
-                    { id: 's5', name: '카페명5', category: '종류', image: '/images/cafe5.jpg' },
-                    { id: 's6', name: '카페명6', category: '종류', image: '/images/cafe6.jpg' }
-                  ]
-                }
-              ].map((menu, menuIndex) => (
-                <div key={menuIndex} className="space-y-3">
-                  {/* 키워드 카테고리 (라벨) */}
-                  <div className="flex justify-start px-2">
-                    <div className="bg-white border-2 border-[#F1CD87] rounded-[10px] px-4 py-2">
-                      <span className="text-[#F1CD87] text-xs font-semibold">{menu.keyword}</span>
+              {['cafe','restaurant','attraction','all'].map((cat) => {
+                const list = suggestedPlaces[cat] || [];
+                if (!list || list.length === 0) return null;
+                return (
+                  <div key={cat} className="space-y-3">
+                    <div className="flex justify-start px-2">
+                      <div className="bg-white border-2 border-[#F1CD87] rounded-[10px] px-4 py-2">
+                        <span className="text-[#F1CD87] text-xs font-semibold">{cat === 'all' ? '추천 매장' : cat}</span>
+                      </div>
+                    </div>
+                    <div className="px-2">
+                      <PlaceCards
+                        places={list.map((s, idx) => ({
+                          id: s.id ?? s.storeId ?? `suggest-${cat}-${idx}`,
+                          name: s.storeName || s.name || s.title || '',
+                          category: s.category || '',
+                          image: (s.images && s.images[0]) || s.image || '/images/tmp.jpg'
+                        }))}
+                        layout="scroll"
+                        variant="compact"
+                        onLikeToggle={openPickerForPlace}
+                      />
                     </div>
                   </div>
-
-                  {/* 메뉴 라벨 아래에 PlaceCards 컴포넌트 배치 (홈과 유사한 방식, horizontal scroll) */}
-                  <div className="px-2">
-                    <PlaceCards
-                      places={menu.stores.map((s, idx) => ({
-                        id: s.id ?? `menu-${menuIndex}-${idx}`,
-                        name: s.name,
-                        category: s.category,
-                        image: s.image
-                      }))}
-                      layout="scroll"
-                      variant="compact"
-                      onLikeToggle={openPickerForPlace}
-                    />
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         ) : (
