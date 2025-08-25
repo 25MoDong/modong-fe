@@ -26,6 +26,17 @@ export const getAllJt = async () => {
   }
 };
 
+// 특정 사용자의 집제목(컬렉션) 조회 (GET /api/v3/findJtByUser/{userId})
+export const findJtByUser = async (userId) => {
+  try {
+    const response = await api.get(`/api/v3/findJtByUser/${encSeg(userId)}`);
+    return response.data;
+  } catch (error) {
+    console.error('Failed to find Jt by user:', error);
+    throw error;
+  }
+};
+
 // 집제목 생성 (POST /api/v3/createJt)
 export const createJt = async (jtData) => {
   try {

@@ -1,7 +1,6 @@
 import { useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ImagePlus, ChevronDown, ChevronUp, ArrowLeft } from 'lucide-react';
-import MyReviewsList from '../components/review/MyReviewsList';
 import PlaceSelectDropdown from '../components/common/PlaceSelectDropdown';
 import { createReview } from '../lib/reviewApi';
 import backend from '../lib/backend';
@@ -29,7 +28,8 @@ const WriteReview = () => {
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [showToast, setShowToast] = useState(false);
-  const [activeTab, setActiveTab] = useState('write'); // 'write' or 'myreviews'
+  // 단일 화면(후기 작성)으로 변경: 탭 제거
+  const [activeTab] = useState('write');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // (legacy) fallback availablePlaces kept for local fallback, but actual list
@@ -132,9 +132,7 @@ const WriteReview = () => {
 
   // 완료 버튼 활성화 상태 확인
   const isCompleteButtonEnabled = () => {
-    return reviewData.selectedPlace && 
-           reviewData.selectedCategories.length === 3 && 
-           reviewData.oneLineReview.trim();
+    return reviewData.selectedPlace && reviewData.selectedCategories.length === 3 && reviewData.oneLineReview.trim();
   };
 
   // 완료 버튼 핸들러
@@ -237,29 +235,7 @@ const WriteReview = () => {
             <h1 className="text-xl font-semibold text-black">후기</h1>
           </div>
           
-          {/* 탭 메뉴 */}
-          <div className="flex border-b border-gray-100">
-            <button
-              onClick={() => setActiveTab('write')}
-              className={`flex-1 py-3 text-sm font-medium transition-colors relative ${
-                activeTab === 'write' 
-                  ? 'text-blue-600 border-b-2 border-blue-600' 
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              후기 작성
-            </button>
-            <button
-              onClick={() => setActiveTab('myreviews')}
-              className={`flex-1 py-3 text-sm font-medium transition-colors relative ${
-                activeTab === 'myreviews' 
-                  ? 'text-blue-600 border-b-2 border-blue-600' 
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              내 후기
-            </button>
-          </div>
+          {/* 탭 제거: 이 페이지는 오직 후기 작성만 표시 */}
         </div>
 
         {/* 스크롤 가능한 콘텐츠 영역 - 스크롤바 숨김 */}
@@ -402,15 +378,11 @@ const WriteReview = () => {
           />
             </div>
             </div>
-          ) : (
-            <div className="px-6 py-6">
-              <MyReviewsList />
-            </div>
-          )}
+          ) : null}
         </div>
 
         {/* 완료 버튼 - 하단 고정 (후기 작성 탭에서만 표시) */}
-        {activeTab === 'write' && (
+        {(
         <div className="flex-shrink-0 p-6 bg-white border-t border-gray-100">
           <button
             onClick={handleComplete}

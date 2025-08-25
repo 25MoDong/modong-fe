@@ -235,8 +235,8 @@ export default function Favorites() {
                   onClick={async () => {
                     if (isEditMode) return handleCollectionSelect(c.id);
                     try {
-                      const map = loadMapping();
-                      const placeIds = Object.entries(map)
+                      const map = await loadMapping();
+                      const placeIds = Object.entries(map || {})
                         .filter(([placeId, colIds]) => (colIds || []).includes(c.id))
                         .map(([placeId]) => placeId);
 

@@ -10,7 +10,8 @@ import {
   findJtById, 
   updateJt, 
   deleteJt,
-  getAllJt
+  getAllJt,
+  findJtByUser
 } from './jtApi';
 import { 
   createJs, 
@@ -35,17 +36,22 @@ const getCurrentUserId = () => {
 export const loadCollections = async () => {
   try {
     const userId = getCurrentUserId();
-    // Use v3 jt listing to build collections (prefer server-side jt model)
-    const allJt = await getAllJt();
-
-    // Filter jt records by current user if possible
-    const myJt = Array.isArray(allJt)
-      ? allJt.filter(j => {
-          if (!userId) return false;
-          // try common user fields
-          return String(j.userId || j.user || j.creator || j.memberId || '') === String(userId);
-        })
-      : [];
+    // Prefer dedicated endpoint that returns this user's jt records
+    let myJt = [];
+    if (userId) {
+      try {
+        const res = await findJtByUser(userId);
+        myJt = Array.isArray(res) ? res : (res?.items || []);
+      } catch (err) {
+        // fallback to fetching all and filtering
+        const allJt = await getAllJt();
+        myJt = Array.isArray(allJt)
+          ? allJt.filter(j => String(j.userId || j.user || j.creator || j.memberId || '') === String(userId))
+          : [];
+      }
+    } else {
+      myJt = [];
+    }
 
     const collections = [];
     for (const jt of myJt) {
@@ -98,10 +104,10 @@ export const addCollection = async (title, description = '') => {
     const userId = getCurrentUserId();
     if (!userId) throw new Error('No user selected');
 
+    // According to backend contract, createJt expects { userId, title }
     const jtData = {
       userId,
-      title,
-      description
+      title
     };
     
     const result = await createJt(jtData);

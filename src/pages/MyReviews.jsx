@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import userStore from '../lib/userStore';
-import api from '../lib/axios';
+import api from '../lib/api';
 
 function normalizeReview(r) {
   // 가능한 키들을 정규화
@@ -76,4 +76,3 @@ export default function MyReviews() {
     </div>
   );
 }
-

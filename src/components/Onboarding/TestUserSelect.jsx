@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import backend from '../../lib/backend';
+import { getAllUsers as fetchAllUsers } from '../../lib/userApi';
 import { FilterTag } from '../common/FilterTags';
 
 const TestUserSelect = ({ onComplete }) => {
@@ -22,16 +22,22 @@ const TestUserSelect = ({ onComplete }) => {
     let mounted = true;
     const load = async () => {
       try {
-        const list = await backend.getAllUsers();
+        // Use the dedicated user API helper for clarity and testability
+        const list = await fetchAllUsers();
         if (!mounted) return;
-        setUsers(list || []);
+        const arr = Array.isArray(list) ? list : (list?.items || []);
+        setUsers(arr || []);
         const tags = {};
-        (list || []).forEach(u => {
-          tags[u.id] = Array.isArray(u.userMood) ? u.userMood.slice(0, 4).map(t => `# ${t}`) : [];
+        arr.forEach(u => {
+          // Normalize userMood into tag strings
+          const moods = Array.isArray(u.userMood) ? u.userMood : (typeof u.userMood === 'string' ? u.userMood.split(/\r?\n|,/) : []);
+          tags[u.id] = moods.slice(0, 4).map(t => `${t}`);
         });
         setUserTags(tags);
       } catch (err) {
         console.error('Failed to load users', err);
+        setUsers([]);
+        setUserTags({});
       }
     };
     load();

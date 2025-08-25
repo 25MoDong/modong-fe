@@ -4,12 +4,12 @@ import api, { encodePathSegment as encSeg } from './api';
 const backend = {
   // v1 - user API
   async getAllUsers() {
-    const res = await api.get('/api/v1');
+    const res = await api.get('/api/v1/users');
     return Array.isArray(res.data) ? res.data : (res.data?.items || []);
   },
 
   async getUserById(id) {
-    const res = await api.get('/api/v1/' + encSeg(id));
+    const res = await api.get('/api/v1/users/' + encSeg(id));
     return res.data;
   },
   // v6 - store API (map feature priority)
@@ -32,6 +32,12 @@ const backend = {
     return res.data;
   },
 
+
+  async getUserRecommendations(userId) {
+    if (!userId) return [];
+    const res = await api.get('/api/user-recommendations/' + encSeg(userId));
+    return Array.isArray(res.data) ? res.data : (res.data?.items || []);
+  },
   async searchStores(query) {
     // Use documented search endpoint: GET /api/v6/search?name=...
     if (!query || !query.trim()) return [];

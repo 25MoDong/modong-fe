@@ -5,16 +5,23 @@ import api, { encodePathSegment as encSeg } from './api';
  * - 맵에 가게를 띄우는 기능 우선: 백엔드의 Store 엔드포인트를 직접 사용
  */
 
-// OpenAPI: GET /api/v6/getAllStores
-export const getAllStores = async () => {
+// OpenAPI: GET /api/v7/getAllLocations — returns storeId + lat/lng
+export const getAllLocations = async () => {
   try {
-    const res = await api.get('/api/v6/getAllStores');
-    const stores = res.data || res; // fetch 래퍼/axios 혼용 대비
-    if (!Array.isArray(stores)) return [];
-    return stores.map(normalizeStore);
+    const res = await api.get('/api/v7/getAllLocations');
+    const items = res.data || res;
+    if (!Array.isArray(items)) return [];
+    // Expecting [{ storeId, posX, posY, storeName?, category? }]
+    return items.map((it) => ({
+      id: it.storeId || it.id || it._id,
+      storeId: it.storeId || it.id || it._id,
+      name: it.storeName || it.name || '',
+      category: it.category || '기타',
+      coordinates: (it.posX != null && it.posY != null) ? { lat: Number(it.posY), lng: Number(it.posX) } : null,
+    }));
   } catch (error) {
-    console.error('Failed to fetch stores:', error);
-    return getDummyStores();
+    console.error('Failed to fetch locations:', error);
+    return [];
   }
 };
 
@@ -102,7 +109,7 @@ function normalizeStore(s) {
     reviewCount: s.reviewCount || 0,
     contact: { phone: s.phone },
     hours: s.operatingHours,
-    // 좌표 정보가 스펙에 없다면 null로 두고, 클라이언트에서 지오코딩 수행
+    // 좌표는 v7 위치 API를 통해 별도로 획득하여 병합함
     coordinates: s.coordinates || (s.location ? { lat: s.location.lat, lng: s.location.lng } : null) || null,
   };
 }
@@ -131,42 +138,4 @@ const generateRandomPhone = () => {
   return `02-${Math.floor(Math.random() * 9000) + 1000}-${Math.floor(Math.random() * 9000) + 1000}`;
 };
 
-// 더미 데이터 (API 실패 시 사용)
-const getDummyStores = () => [
-  {
-    id: 1,
-    name: '돌맹돌맹 카페',
-    category: '카페',
-    address: '서울시 강남구 역삼동',
-    rating: 4.5,
-    reviewCount: 127,
-    tags: ['조용한', '와이파이', '디저트'],
-    images: ['/images/cafe1.jpg'],
-    hours: { isOpen: true, todayHours: '08:00 - 22:00' },
-    distance: '0.3km'
-  },
-  {
-    id: 2,
-    name: '맛있는 파스타집',
-    category: '레스토랑',
-    address: '서울시 강남구 신사동',
-    rating: 4.8,
-    reviewCount: 89,
-    tags: ['맛있는', '분위기좋은', '데이트'],
-    images: ['/images/restaurant1.jpg'],
-    hours: { isOpen: true, todayHours: '11:00 - 23:00' },
-    distance: '0.7km'
-  },
-  {
-    id: 3,
-    name: '독서하기 좋은 북카페',
-    category: '카페',
-    address: '서울시 강남구 청담동',
-    rating: 4.3,
-    reviewCount: 156,
-    tags: ['조용한', '독서', '힐링'],
-    images: ['/images/bookcafe1.jpg'],
-    hours: { isOpen: false, todayHours: '09:00 - 21:00' },
-    distance: '1.2km'
-  }
-];
+// 더미 데이터 제거: v7 위치 API 실패 시 빈 배열 반환

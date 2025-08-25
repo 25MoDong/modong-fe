@@ -33,6 +33,13 @@ async function request(path, options = {}) {
     body: options.body ? JSON.stringify(options.body) : undefined,
   };
 
+  const debug = !!(import.meta?.env && import.meta.env.VITE_API_DEBUG);
+  const started = Date.now();
+  if (debug) {
+    // eslint-disable-next-line no-console
+    console.debug('[api]', opts.method, url, options.body ? { body: options.body } : '');
+  }
+
   const res = await fetch(url, opts);
   const contentType = res.headers.get('Content-Type') || '';
   let data = null;
@@ -46,9 +53,16 @@ async function request(path, options = {}) {
     const err = new Error(`HTTP ${res.status} ${res.statusText}`);
     err.status = res.status;
     err.data = data;
+    if (debug) {
+      // eslint-disable-next-line no-console
+      console.debug('[api]', opts.method, url, '->', res.status, `${Date.now() - started}ms`, data);
+    }
     throw err;
   }
-
+  if (debug) {
+    // eslint-disable-next-line no-console
+    console.debug('[api]', opts.method, url, '->', res.status, `${Date.now() - started}ms`);
+  }
   return { data, status: res.status, headers: res.headers };
 }
 
