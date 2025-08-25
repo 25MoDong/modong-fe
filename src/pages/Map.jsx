@@ -14,6 +14,9 @@ import { useSearchModal } from '../hooks/useSearchModal';
 import { useSearchModeContext } from '../contexts/SearchModeContext';
 import { animateToMarker } from '../lib/mapUtils';
 import { getStoresByCategory } from '../lib/storeApi';
+import userStore from '../lib/userStore';
+import { getMyReviews } from '../lib/reviewApi';
+import backend from '../lib/backend';
 import { useDebounce } from '../hooks/useDebounce';
 
 const MapPage = () => {
@@ -60,6 +63,8 @@ const MapPage = () => {
   const [isTrackingPaused, setIsTrackingPaused] = useState(false);
   const [categoryPlaces, setCategoryPlaces] = useState([]);
   const [categoryLoading, setCategoryLoading] = useState(false);
+  // set of normalized store names that the current user has reviewed
+  const [jemStoreNames, setJemStoreNames] = useState(new Set());
   
   // Track if demo has already been initialized to prevent re-triggering
   const demoInitializedRef = useRef(false);
@@ -339,6 +344,56 @@ const MapPage = () => {
     };
   }, []);
 
+  // Load user's reviewed store names and prepare a set of normalized names
+  useEffect(() => {
+    let mounted = true;
+    const loadReviewedPlaceNames = async () => {
+      try {
+        const uid = userStore.getUserId();
+        if (!uid) {
+          if (mounted) setJemStoreNames(new Set());
+          return;
+        }
+
+        const reviews = await getMyReviews(uid) || [];
+        // collect unique store names from reviews
+        const storeNames = Array.from(new Set((reviews || [])
+          .map(r => (r.storeName || r.name || r.store || ''))
+          .filter(Boolean)
+          .map(s => s.trim().toLowerCase())
+        ));
+
+        if (storeNames.length === 0) {
+          if (mounted) setJemStoreNames(new Set());
+          return;
+        }
+
+        // For each reviewed storeName, search backend for matching places and collect normalized names
+        const matchedNames = new Set();
+        for (const name of storeNames) {
+          try {
+            const results = await backend.searchStores(name);
+            (results || []).forEach(p => {
+              const nm = (p.storeName || p.name || '').trim().toLowerCase();
+              if (nm) matchedNames.add(nm);
+            });
+          } catch (e) {
+            console.warn('searchStores failed for', name, e);
+          }
+        }
+
+        if (mounted) setJemStoreNames(matchedNames);
+      } catch (e) {
+        console.error('Failed to load reviewed place names for jem markers:', e);
+      }
+    };
+    loadReviewedPlaceNames();
+    const handler = () => loadReviewedPlaceNames();
+    window.addEventListener('UserChanged', handler);
+    window.addEventListener('focus', handler);
+    return () => { mounted = false; window.removeEventListener('UserChanged', handler); window.removeEventListener('focus', handler); };
+  }, []);
+
   // Show loading state while fetching places
   if (loading) {
     return (
@@ -392,6 +447,7 @@ const MapPage = () => {
             onMarkerClick={handleMarkerClick}
             viewport={viewport}
             mapInstance={mapInstance}
+            jemStoreNames={jemStoreNames}
           />
 
           {/* Info window for selected place */}

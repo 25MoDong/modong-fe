@@ -159,7 +159,7 @@ FallbackMarkerIcon.displayName = 'FallbackMarkerIcon';
  * 3. 각 마커를 중심으로 인근 마커들을 클러스터로 그룹화
  * 4. 클러스터 중심점은 포함된 모든 마커의 평균 좌표로 계산
  */
-const AdvancedMarkerClusterer = ({ places, onMarkerClick, viewport, mapInstance }) => {
+const AdvancedMarkerClusterer = ({ places, onMarkerClick, viewport, mapInstance, jemStoreNames = new Set() }) => {
   
   
   /**
@@ -566,17 +566,30 @@ const AdvancedMarkerClusterer = ({ places, onMarkerClick, viewport, mapInstance 
                 e.currentTarget.style.transform = 'scale(1)';
               }}
             >
-              <img 
-                src="/marker.svg" 
-                alt="마커"
-                draggable="false"
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  display: 'block',
-                  WebkitUserDrag: 'none',
-                }}
-              />
+              {
+                /* If this place matches a reviewed store name, use the jemMarker.svg */
+              }
+              {(() => {
+                try {
+                  const data = item.data || (Array.isArray(item.places) && item.places[0]) || {};
+                  const placeName = (data.storeName || data.name || '') + '';
+                  const normalized = placeName.trim().toLowerCase();
+                  const useJem = (jemStoreNames && typeof jemStoreNames.has === 'function') ? jemStoreNames.has(normalized) : false;
+                  const src = useJem ? '/jemMarker.svg' : '/marker.svg';
+                  return (
+                    <img
+                      src={src}
+                      alt={useJem ? '리뷰한 가게 마커' : '마커'}
+                      draggable={false}
+                      style={{ width: '100%', height: '100%', display: 'block', WebkitUserDrag: 'none' }}
+                    />
+                  );
+                } catch (e) {
+                  return (
+                    <img src="/marker.svg" alt="마커" draggable={false} style={{ width: '100%', height: '100%', display: 'block', WebkitUserDrag: 'none' }} />
+                  );
+                }
+              })()}
             </div>
           </CustomOverlayMap>
         )
