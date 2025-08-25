@@ -129,7 +129,7 @@ const Redefinition = ({ onComplete, fromOnboarding }) => {
         {/* 메인 타이틀 */}
         <div className="text-center mb-6">
           <h1 className="font-sans font-bold text-[28px] leading-[32px] text-[#6B6B6B] mb-4">
-            당신은 {userData?.name || userData?.id || '느좋돌멩이'} !
+            당신은 "{userData?.id || userData?.name || '느좋돌멩이'}" !
           </h1>
           
           {/* 프로필 이미지 영역 */}

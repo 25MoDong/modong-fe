@@ -5,19 +5,12 @@ const K = {
   placeCache: 'fav_place_cache'        // { [placeId]: placeObject }
 };
 
-// 기본 보석함 샘플 (최초 1회)
-const DEFAULT_COLLECTIONS = [
-  { id: 1, title: '카공하기 좋은 곳', description: '', count: 3 },
-  { id: 2, title: '빙수 맛있는 곳',   description: '', count: 2 },
-];
+// 기본 보석함 샘플 제거: 서버 기반 컬렉션을 사용하므로 로컬 더미 데이터는 남기지 않습니다.
+const DEFAULT_COLLECTIONS = [];
 
 export function loadCollections() {
   const raw = localStorage.getItem(K.collections);
-  if (!raw) {
-    localStorage.setItem(K.collections, JSON.stringify(DEFAULT_COLLECTIONS));
-    return [...DEFAULT_COLLECTIONS];
-  }
-  try { return JSON.parse(raw) || []; } catch { return []; }
+  try { return raw ? JSON.parse(raw) : [] ; } catch { return []; }
 }
 
 export function saveCollections(list) {

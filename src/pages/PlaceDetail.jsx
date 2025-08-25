@@ -1,8 +1,8 @@
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Heart, MapPin } from 'lucide-react';
 import { useRef, useMemo, useState, useEffect } from 'react';
-import api from '../lib/api';
-import backend from '../lib/backend';
+import { calculateDistance, formatDistance } from '../lib/mapUtils';
+import { getStoreById } from '../lib/storeApi';
 import { getStoreReviews } from '../lib/reviewApi';
 
 import BackBar from '../components/place/BackBar.jsx';
@@ -43,7 +43,10 @@ export default function PlaceDetail() {
 
   const [addOpen, setAddOpen] = useState(false);
   const [place, setPlace] = useState(null);
+  const [reviews, setReviews] = useState([]);
   const [reviewCount, setReviewCount] = useState(0);
+  const [distanceText, setDistanceText] = useState('');
+  const [loadingReviews, setLoadingReviews] = useState(false);
   const location = useLocation();
 
   // 현재 placeId가 포함된 보석함 미리 체크
@@ -62,40 +65,103 @@ export default function PlaceDetail() {
     if (navPlace) {
       setPlace(navPlace);
       try { savePlace(navPlace); } catch (e) {}
+
+      // If navigated from map, compute distance using geolocation and persist last known location
+      try {
+        if (navPlace.coordinates && navigator && navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition((pos) => {
+            try {
+              const userCoord = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+              // save for other callers
+              try { window.localStorage.setItem('last_known_location', JSON.stringify(userCoord)); } catch (e) {}
+              const km = calculateDistance(navPlace.coordinates, userCoord);
+              const txt = formatDistance(km) + ' 이내';
+              setDistanceText(txt);
+            } catch (e) {
+              setDistanceText('');
+            }
+          }, (err) => {
+            setDistanceText('');
+          }, { maximumAge: 60000, timeout: 2000 });
+        }
+      } catch (e) {}
+
       return;
     }
 
     const fetchPlace = async () => {
       const cached = loadPlace(placeId);
-      if (cached) { setPlace(cached); return; }
+      if (cached) { setPlace(cached); }
       try {
-        const data = await backend.getPlaceById(placeId);
-        if (data) { setPlace(data); try { savePlace(data); } catch (e) { } } else { setPlace(null); }
+        const data = await getStoreById(placeId);
+        if (data) {
+          // 좌표는 네비게이션 state가 가진 값이 더 정확할 수 있음. 병합 유지.
+          const merged = { ...data, coordinates: data.coordinates || cached?.coordinates || location.state?.place?.coordinates };
+          setPlace(merged);
+          try { savePlace(merged); } catch (e) { }
+        } else if (!cached) {
+          setPlace(null);
+        }
       } catch (err) {
         console.error('Failed to fetch place details', err);
-        setPlace(null);
+        if (!cached) setPlace(null);
       }
     };
 
     fetchPlace();
   }, [placeId, location.state]);
 
-  // 지도에서 넘어온 경우 해당 가게의 리뷰 개수 가져오기
+  // Ensure distance is computed whenever place coordinates become available
   useEffect(() => {
-    if (isFromMap && place?.id) {
-      const fetchReviewCount = async () => {
+    let mounted = true;
+    if (!place?.coordinates) return;
+    try {
+      if (navigator && navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition((pos) => {
+          if (!mounted) return;
+          try {
+            const userCoord = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+            try { window.localStorage.setItem('last_known_location', JSON.stringify(userCoord)); } catch (e) {}
+            const km = calculateDistance(place.coordinates, userCoord);
+            const txt = formatDistance(km) + ' 이내';
+            setDistanceText(txt);
+          } catch (e) {
+            setDistanceText('');
+          }
+        }, (err) => {
+          if (!mounted) return;
+          setDistanceText('');
+        }, { maximumAge: 60000, timeout: 2000 });
+      }
+    } catch (e) {
+      if (mounted) setDistanceText('');
+    }
+    return () => { mounted = false; };
+  }, [place?.coordinates]);
+
+  // 상세에서 항상 리뷰 데이터 가져오기
+  useEffect(() => {
+    if (place?.id || place?.storeId) {
+      const fetchReviews = async () => {
         try {
-          const reviews = await getStoreReviews(place.id);
-          setReviewCount(Array.isArray(reviews) ? reviews.length : 0);
+          setLoadingReviews(true);
+          const storeId = place.storeId || place.id;
+          const reviewsData = await getStoreReviews(storeId);
+          const reviewArray = Array.isArray(reviewsData) ? reviewsData : [];
+          setReviews(reviewArray);
+          setReviewCount(reviewArray.length);
         } catch (error) {
-          console.error('Failed to fetch review count:', error);
+          console.error('Failed to fetch reviews:', error);
+          setReviews([]);
           setReviewCount(0);
+        } finally {
+          setLoadingReviews(false);
         }
       };
       
-      fetchReviewCount();
+      fetchReviews();
     }
-  }, [isFromMap, place?.id]);
+  }, [place?.id, place?.storeId]);
 
   const toggleSelect = (cid) =>
     setSelected(prev => prev.includes(cid) ? prev.filter(v => v !== cid) : [...prev, cid]);
@@ -178,7 +244,7 @@ export default function PlaceDetail() {
         <div className="px-5 mt-3 flex items-start justify-between">
           <div>
             <h1 className="text-[22px] font-semibold tracking-tight text-[#1B2340]">{(place?.name || place?.title || MOCK.name)}</h1>
-            <p className="mt-1 text-[12px] text-gray-600">{place?.address?.full || MOCK.distance}</p>
+            <p className="mt-1 text-[12px] text-gray-600">{distanceText || place?.address?.full || MOCK.distance}</p>
           </div>
           <div className="flex gap-3">
             <button
@@ -225,26 +291,72 @@ export default function PlaceDetail() {
             onWheel={toHorizontal(menuRef)}
             className="mt-3 flex gap-3 overflow-x-auto scrollbar-hide -mx-5 px-5 snap-x snap-mandatory"
           >
-            {(place?.menu || MOCK.menu).map((m, i) => (
-              <div key={i} className="snap-start shrink-0">
-                <MenuSkeleton label={m} />
-              </div>
-            ))}
+            {(() => {
+              // mainMenu를 파싱해서 배열로 만들기
+              let menuItems = [];
+              if (place?.mainMenu) {
+                // mainMenu가 문자열인 경우 콤마나 줄바꿈으로 분리
+                if (typeof place.mainMenu === 'string') {
+                  menuItems = place.mainMenu.split(/,|\n/).map(item => item.trim()).filter(Boolean);
+                } else if (Array.isArray(place.mainMenu)) {
+                  menuItems = place.mainMenu;
+                }
+              }
+              
+              // 기본값 사용 (빈 배열인 경우)
+              if (menuItems.length === 0) {
+                menuItems = MOCK.menu;
+              }
+
+              return menuItems.map((m, i) => (
+                <div key={i} className="snap-start shrink-0">
+                  <MenuSkeleton label={m} />
+                </div>
+              ));
+            })()}
           </div>
         </section>
 
         {/* 후기 (가로 스크롤) */}
         <section className="px-5 pb-6">
           <h2 className="text-[16px] font-semibold text-[#1B2340]">내 주변 돌멩이 수집가들의 후기</h2>
-          <div
-            ref={reviewsRef}
-            onWheel={toHorizontal(reviewsRef)}
-            className="mt-3 flex gap-3 overflow-x-auto scrollbar-hide -mx-5 px-5"
-          >
-            {(place?.reviews || MOCK.reviews).map(r => (
-              <ReviewCard key={r.id} title={r.title} badges={r.badges} text={r.text} />
-            ))}
-          </div>
+          {loadingReviews ? (
+            <div className="mt-3 flex gap-3 overflow-x-auto scrollbar-hide -mx-5 px-5">
+              {/* 로딩 스켈레톤 */}
+              {[1, 2, 3].map(i => (
+                <div key={i} className="w-[168px] shrink-0 rounded-xl border border-gray-100 bg-gray-50 p-4 animate-pulse">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-full bg-gray-200"></div>
+                    <div className="h-4 w-16 bg-gray-200 rounded"></div>
+                  </div>
+                  <div className="mt-2 flex gap-1">
+                    <div className="h-5 w-12 bg-gray-200 rounded-full"></div>
+                    <div className="h-5 w-10 bg-gray-200 rounded-full"></div>
+                  </div>
+                  <div className="mt-3 h-16 bg-gray-200 rounded-lg"></div>
+                </div>
+              ))}
+            </div>
+          ) : reviews.length > 0 ? (
+            <div
+              ref={reviewsRef}
+              onWheel={toHorizontal(reviewsRef)}
+              className="mt-3 flex gap-3 overflow-x-auto scrollbar-hide -mx-5 px-5"
+            >
+              {reviews.map((review, index) => (
+                <ReviewCard 
+                  key={review.id || index}
+                  title={review.userId || '익명 사용자'}
+                  badges={['후기']} // API에서 뱃지 정보가 없으므로 기본값
+                  text={review.review || review.content || '리뷰 내용이 없습니다'}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="mt-3 flex items-center justify-center h-24 text-gray-500 text-sm">
+              아직 등록된 후기가 없습니다
+            </div>
+          )}
         </section>
         </div>
 

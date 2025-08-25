@@ -91,7 +91,7 @@ const InfoWindow = memo(function InfoWindow({ place, onClose }) {
   }, [placeData.id, placeData.coordinates]);
 
   const handleDetailClick = () => {
-    // Pass the normalized place data and a marker indicating we came from the map
+    // 이동만 하고, 상세 페이지에서 /api/v6/{storeId}로 최신 정보 갱신
     navigate(`/place/${placeData.id || 1}`, { state: { place: placeData, from: 'map' } });
   };
 

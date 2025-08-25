@@ -93,6 +93,12 @@ Goal: `https://<your-domain>/api/*` should reach the backend via API Gateway, wh
   - If API Gateway double-decodes: set `VITE_DOUBLE_ENCODE_PATHS=1` at build time.
   - Alternative: change backend endpoints to accept IDs in query params instead of path segments where practical.
 
+## Diagnostics
+
+- Client logging: enable `VITE_API_DEBUG=1` to log each API call (method, URL, status, duration). Useful to confirm which origin served a request and whether SPA rewrites interfered.
+- Encoding toggle: set `VITE_DOUBLE_ENCODE_PATHS=1` if you observe 400s when IDs include spaces or special characters behind API Gateway.
+- Curl via CloudFront: run the commands in “Quick Verification Commands” pointing at the CloudFront domain to ensure the `/api/*` behavior is used.
+
 ## Quick Verification Commands
 
 Replace `<domain>` with your CloudFront domain.
@@ -122,4 +128,3 @@ curl -i "https://<domain>/api/v5/getUserFs?userId=johndoe123"
 - If JWT is enforced by backend, thread a token provider into `api.js` headers and handle 401 refresh/redirect.
 
 — End of review —
-

@@ -1,17 +1,21 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Heart } from 'lucide-react';
 import OnboardingFlow from '../components/Onboarding/OnboardingFlow';
 import LocationBar from '../components/home/LocationBar';
 import StatusCard from '../components/home/StatusCard';
 // removed SectionTitle and PlaceCards per redesign
 import FavoritesPickerSheet from '../components/favorites/FavoritesPickerSheet.jsx';
 import AddCollectionModal from '../components/favorites/AddCollectionModal.jsx';
-import { loadCollections, loadMapping, saveMapping, addCollection, recountCollectionCounts, savePlace } from '../lib/favoritesStorage';
+import { loadMapping, saveMapping, addCollection, recountCollectionCounts, savePlace } from '../lib/favoritesStorage';
 import { usePlaces } from '../hooks/usePlaces';
 import FilterTags from '../components/common/FilterTags';
 import PlaceSelectDropdown from '../components/common/PlaceSelectDropdown';
 import AutoSizeText from '../components/common/AutoSizeText.jsx';
+import HomeTags from '../components/common/HomeTags.jsx';
+import FallbackLoading from '../components/common/FallbackLoading.jsx';
 import backend from '../lib/backend';
+import aiApi from '../lib/aiApi';
 import userStore from '../lib/userStore';
 import { useCoupons } from '../lib/couponsStorage';
 
@@ -152,48 +156,24 @@ const Home = () => {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerCollections, setPickerCollections] = useState([]);
   const [pickerSelectedIds, setPickerSelectedIds] = useState([]);
-  const [pickerPlace, setPickerPlace] = useState(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [pickerPlace, setPickerPlace] = useState(null);
 
   // place select dropdown
   const [placeDropdownOpen, setPlaceDropdownOpen] = useState(false);
   const [selectedPlace, setSelectedPlace] = useState(null);
   const placeContainerRef = useRef(null);
   const [placeCategories, setPlaceCategories] = useState([]);
+  const [recommendations, setRecommendations] = useState([]);
+  const [userRecStores, setUserRecStores] = useState([]);
+  const [favoritePlaces, setFavoritePlaces] = useState([]);
+  const [enrichedRecommendations, setEnrichedRecommendations] = useState([]);
+  
+  // Loading states
+  const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
+  const [isLoadingHero, setIsLoadingHero] = useState(true);
 
-  // Load one hero favorite store from v5 and reflect its name/tags in the hero area
-  useEffect(() => {
-    let mounted = true;
-
-    const loadHero = async () => {
-      try {
-        const uid = userStore.getUserId();
-        if (!uid) return;
-        const list = await backend.getUserStores(uid);
-        if (!mounted || !Array.isArray(list) || list.length === 0) return;
-        const hero = list[0];
-        const name = hero.storeName || hero.name || hero.title || hero.store || '연남 작당모의 카페';
-        if (mounted) setSelectedPlace(name);
-        // prefer hero.tags if available, otherwise show the default three tags requested
-        if (mounted) setPlaceCategories(Array.isArray(hero.tags) && hero.tags.length ? hero.tags : ["달달한", "분위기가 좋은", "베이커리가 많은"]);
-      } catch (e) {
-        // ignore and keep defaults
-      }
-    };
-
-    loadHero();
-
-    const onUserChanged = () => loadHero();
-    window.addEventListener('UserChanged', onUserChanged);
-    window.addEventListener('OnboardingCompleted', onUserChanged);
-
-    return () => { mounted = false; window.removeEventListener('UserChanged', onUserChanged); window.removeEventListener('OnboardingCompleted', onUserChanged); };
-  }, []);
-
-  const handleOpenPlaceDropdown = useCallback(() => {
-    setPlaceDropdownOpen(true);
-  }, []);
-
+  // Place selection handler: normalize input, fetch details, and call AI recommend
   const handleSelectPlace = useCallback((place) => {
     // `place` may be a string (label) or a raw object from backend. Normalize to display string.
     let displayName = '';
@@ -212,58 +192,339 @@ const Home = () => {
 
     setSelectedPlace(displayName);
 
-    // fetch place details and categories if possible
+    // fetch place details and categories if possible and call AI recommend
     (async () => {
       try {
-        const detail = await backend.getStoreByNameDetail(lookupName, '');
-        if (!detail) return setPlaceCategories([]);
-        // prefer tags array, else category or keywords
-        if (Array.isArray(detail.tags) && detail.tags.length) return setPlaceCategories(detail.tags);
-        if (detail.category) return setPlaceCategories([detail.category]);
-        if (detail.userMood) return setPlaceCategories(Array.isArray(detail.userMood)? detail.userMood : [detail.userMood]);
-        // fallback: derive simple tags from name
-        const derived = lookupName.split(/\s|\-/).slice(0,4).map(s => s.replace(/\W+/g,'')).filter(Boolean);
-        setPlaceCategories(derived);
-      } catch (e) {
+        setIsLoadingRecommendations(true);
+        // Prefer favoritePlaces match for details
+        const favMatch = favoritePlaces && favoritePlaces.length ? favoritePlaces.find(fp => {
+          const n = (fp.storeName || fp.name || fp.title || '').toString();
+          return n && n === lookupName;
+        }) : null;
+
+        // If not found in favorites, try search
+        let detail = favMatch || null;
+        if (!detail) {
+          const results = await backend.searchStores(lookupName).catch(() => []);
+          detail = Array.isArray(results) && results.length ? results[0] : null;
+        }
+
+        // Determine targetDetail from available fields
+        const targetDetail = detail?.detail || detail?.address?.full || detail?.address || '';
+        const targetStoreName = displayName;
+
+        // Call AI recommend with specified contract (include userId)
+        try {
+          // Resolve userId from userStore first, then try onboarding user data as fallback
+          let userId = userStore.getUserId();
+          if (!userId) {
+            try {
+              const ud = JSON.parse(localStorage.getItem('user_data') || 'null');
+              if (ud && (ud.id || ud.userId)) userId = ud.id || ud.userId;
+            } catch (e) { /* ignore parse errors */ }
+          }
+
+          // Only call API if userId is available
+          if (!userId) {
+            console.warn('No userId available, skipping AI recommendation');
+            // Use fallback data if available
+            if (detail) {
+              if (Array.isArray(detail.tags) && detail.tags.length) setPlaceCategories(detail.tags);
+              else if (detail.category) setPlaceCategories([detail.category]);
+              else setPlaceCategories([]);
+            } else {
+              setPlaceCategories([]);
+            }
+            setRecommendations([]);
+            return;
+          }
+
+          // Call recommend with userId as a URL parameter and the rest in the request body
+          const res = await aiApi.recommend(userId, { targetStoreName, targetDetail });
+          // response may contain targetKeywords and results
+          if (res && Array.isArray(res.targetKeywords)) {
+            setPlaceCategories(res.targetKeywords);
+          } else if (detail) {
+            if (Array.isArray(detail.tags) && detail.tags.length) setPlaceCategories(detail.tags);
+            else if (detail.category) setPlaceCategories([detail.category]);
+            else setPlaceCategories([]);
+          } else {
+            setPlaceCategories([]);
+          }
+
+          if (res && Array.isArray(res.results)) {
+            setRecommendations(res.results);
+          } else {
+            setRecommendations([]);
+          }
+        } catch (err) {
+          console.error('AI recommendation failed:', err);
+          // on failure, fallback to detail-derived categories
+          if (detail) {
+            if (Array.isArray(detail.tags) && detail.tags.length) setPlaceCategories(detail.tags);
+            else if (detail.category) setPlaceCategories([detail.category]);
+            else setPlaceCategories([]);
+          } else {
+            setPlaceCategories([]);
+          }
+          setRecommendations([]);
+          setIsLoadingRecommendations(false);
+        }
+      } catch (err) {
+        console.error('Error in place selection:', err);
         setPlaceCategories([]);
+        setRecommendations([]);
+        setIsLoadingRecommendations(false);
       }
     })();
     // optional: could trigger filtering or selection side-effects here
-  }, []);
+  }, [favoritePlaces]);
 
-  const openPickerForPlace = useCallback((place, liked) => {
-    if (!place || !place.id) return;
-    // If unliking, remove from all collections immediately and do not open picker
-    if (liked === false) {
-      const map = loadMapping();
-      if (map[String(place.id)]) {
-        delete map[String(place.id)];
-        saveMapping(map);
-        setPickerCollections(recountCollectionCounts());
+  // Load one hero favorite store from v5 and reflect its name/tags in the hero area
+  useEffect(() => {
+    let mounted = true;
+
+    const loadHero = async () => {
+      try {
+        setIsLoadingHero(true);
+        const uid = userStore.getUserId();
+        if (!uid) {
+          if (mounted) {
+            setIsLoadingHero(false);
+            setSelectedPlace('연남 작당모의 카페');
+            setPlaceCategories(["달달한", "분위기가 좋은", "베이커리가 많은"]);
+          }
+          return;
+        }
+        
+        const list = await backend.getUserStores(uid);
+        console.log('Hero loaded user stores:', list);
+        
+        // save favorite places for later lookup
+        if (mounted) setFavoritePlaces(Array.isArray(list) ? list : []);
+        
+        if (!mounted || !Array.isArray(list) || list.length === 0) {
+          if (mounted) {
+            setIsLoadingHero(false);
+            setSelectedPlace('연남 작당모의 카페');
+            setPlaceCategories(["달달한", "분위기가 좋은", "베이커리가 많은"]);
+          }
+          return;
+        }
+        
+        const hero = list[0];
+        const name = hero.storeName || hero.name || hero.title || hero.store || '연남 작당모의 카페';
+        console.log('Hero place name:', name);
+        
+        if (mounted) {
+          setSelectedPlace(name);
+          // prefer hero.tags if available, otherwise show the default three tags requested
+          setPlaceCategories(Array.isArray(hero.tags) && hero.tags.length ? hero.tags : ["달달한", "분위기가 좋은", "베이커리가 많은"]);
+          setIsLoadingHero(false);
+          
+          // Auto-trigger recommendation for the hero place
+          // handleSelectPlace will be called via dependency effect
+        }
+      } catch (e) {
+        console.error('Failed to load hero:', e);
+        if (mounted) {
+          setIsLoadingHero(false);
+          setSelectedPlace('연남 작당모의 카페');
+          setPlaceCategories(["달달한", "분위기가 좋은", "베이커리가 많은"]);
+        }
       }
-      return;
-    }
+    };
 
-    // For liking, open picker with NO preselected collections
-    const cols = loadCollections();
-    setPickerCollections(cols);
-    setPickerSelectedIds([]);
-    setPickerPlace(place);
-    setPickerOpen(true);
+    loadHero();
+
+    const onUserChanged = () => loadHero();
+    window.addEventListener('UserChanged', onUserChanged);
+    window.addEventListener('OnboardingCompleted', onUserChanged);
+
+    return () => { mounted = false; window.removeEventListener('UserChanged', onUserChanged); window.removeEventListener('OnboardingCompleted', onUserChanged); };
   }, []);
+
+  // Enrich recommendations with store details for tags
+  useEffect(() => {
+    let mounted = true;
+
+    const enrichRecommendations = async () => {
+      if (!recommendations || recommendations.length === 0) {
+        setEnrichedRecommendations([]);
+        setIsLoadingRecommendations(false);
+        return;
+      }
+
+      try {
+        setIsLoadingRecommendations(true);
+        const enrichedPromises = recommendations.map(async (rec) => {
+          // Skip if no storeId
+          if (!rec.storeId) {
+            return { ...rec, tags: rec.tags || [] };
+          }
+
+          try {
+            // Fetch store details from /api/v6/{storeId}
+            console.log(`Fetching store details for storeId: ${rec.storeId}`);
+            const storeDetail = await backend.getStoreById(rec.storeId);
+            console.log('Store detail received:', storeDetail);
+            
+            // Extract categories/tags from storeMood field
+            let tags = rec.tags || [];
+            
+            // Parse tags from storeMood if available (main source of tags)
+            if (storeDetail && storeDetail.storeMood) {
+              console.log('storeMood found:', storeDetail.storeMood);
+              // Normalize escaped newlines (literal "\\n") and actual newlines, then split
+              const rawMood = String(storeDetail.storeMood || '');
+              // First handle literal backslash sequences stored in the DB ("\\n"), then normalize real newlines
+              const normalized = rawMood
+                .replaceAll('\\r\\n', '\n')
+                .replaceAll('\\n', '\n')
+                .replace(/\r?\n/g, '\n');
+              const moodTags = normalized.split('\n')
+                .flatMap(part => part.split(/,|·|•/))
+                .map(tag => tag.trim())
+                .filter(tag => tag.length > 0);
+              console.log('Parsed mood tags:', moodTags);
+              tags = [...tags, ...moodTags];
+            }
+            
+            // Fallback: Parse categories from mainMenu if storeMood not available
+            if (tags.length === 0 && storeDetail && storeDetail.mainMenu) {
+              console.log('No storeMood found, trying mainMenu:', storeDetail.mainMenu);
+              // Extract potential category tags from mainMenu string
+              const menuItems = storeDetail.mainMenu.split(/,|\n/).map(item => item.trim()).filter(Boolean);
+              // Try to infer category tags from menu items (simplified approach)
+              const inferredTags = [];
+              
+              if (menuItems.some(item => /커피|라떼|아메리카노|에스프레소/.test(item))) {
+                inferredTags.push('음료가 맛있는');
+              }
+              if (menuItems.some(item => /케이크|디저트|마카롱|쿠키/.test(item))) {
+                inferredTags.push('달달한');
+              }
+              if (menuItems.some(item => /브런치|샐러드|토스트/.test(item))) {
+                inferredTags.push('분위기가 좋은');
+              }
+              
+              tags = [...tags, ...inferredTags];
+              console.log('Inferred tags from menu:', inferredTags);
+            }
+
+            // Use category field if still no tags
+            if (tags.length === 0 && storeDetail && storeDetail.category) {
+              console.log('No storeMood or menu tags, using category:', storeDetail.category);
+              if (storeDetail.category.includes('카페')) {
+                tags.push('분위기가 좋은', '조용한');
+              }
+              if (storeDetail.category.includes('베이커리')) {
+                tags.push('베이커리가 많은');
+              }
+            }
+
+            // Remove duplicates and limit to reasonable number
+            tags = [...new Set(tags)];
+            console.log('Final tags before defaults:', tags);
+
+            // If still no tags, add some defaults based on category
+            if (tags.length === 0) {
+              const category = rec.category || storeDetail?.category || '카페';
+              console.log('Adding default tags for category:', category);
+              if (category.includes('카페')) {
+                tags = ['분위기가 좋은', '조용한', '음료가 맛있는'];
+              } else if (category.includes('레스토랑')) {
+                tags = ['맛있는', '분위기 좋은'];
+              } else {
+                tags = ['분위기가 좋은'];
+              }
+            }
+
+            console.log(`Final result for ${rec.storeId}:`, {
+              storeName: rec.storeName,
+              tags: tags.slice(0, 4),
+              scoreTotal: rec.scoreTotal,
+              matchScore: rec.matchScore
+            });
+
+            return {
+              ...rec,
+              tags: tags.slice(0, 4), // Limit to 4 tags as shown in design
+              storeDetail: storeDetail
+            };
+          } catch (err) {
+            console.error(`Failed to fetch details for store ${rec.storeId}:`, err);
+            // Return with default tags if API call fails
+            const category = rec.category || '카페';
+            let defaultTags = ['분위기가 좋은'];
+            
+            if (category.includes('카페')) {
+              defaultTags = ['분위기가 좋은', '조용한', '음료가 맛있는'];
+            } else if (category.includes('레스토랑')) {
+              defaultTags = ['맛있는', '분위기 좋은'];
+            }
+            
+            return { ...rec, tags: defaultTags };
+          }
+        });
+
+        const enrichedResults = await Promise.all(enrichedPromises);
+        
+        if (mounted) {
+          setEnrichedRecommendations(enrichedResults);
+          setIsLoadingRecommendations(false);
+        }
+      } catch (err) {
+        console.error('Failed to enrich recommendations:', err);
+        if (mounted) {
+          setEnrichedRecommendations(recommendations.map(rec => ({ 
+            ...rec, 
+            tags: rec.tags || ['분위기가 좋은'] 
+          })));
+          setIsLoadingRecommendations(false);
+        }
+      }
+    };
+
+    enrichRecommendations();
+    
+    return () => { mounted = false; };
+  }, [recommendations]);
+
+  // Auto-trigger recommendation for the selected hero place
+  useEffect(() => {
+    if (selectedPlace && !isLoadingHero && favoritePlaces.length > 0) {
+      console.log('Auto-triggering recommendation for hero place:', selectedPlace);
+      const heroPlace = favoritePlaces.find(fp => {
+        const name = fp.storeName || fp.name || fp.title || '';
+        return name === selectedPlace;
+      });
+      if (heroPlace) {
+        handleSelectPlace(heroPlace);
+      }
+    }
+  }, [selectedPlace, isLoadingHero, favoritePlaces, handleSelectPlace]);
+
+  const handleOpenPlaceDropdown = useCallback(() => {
+    setPlaceDropdownOpen(true);
+  }, []);
+
+
+
 
   const pickerToggle = useCallback((cid) => {
     setPickerSelectedIds(prev => prev.includes(cid) ? prev.filter(v => v !== cid) : [...prev, cid]);
   }, []);
 
   const pickerSave = useCallback(() => {
-    if (!pickerPlace) return setPickerOpen(false);
-    savePlace(pickerPlace);
-    const map = loadMapping();
-    map[String(pickerPlace.id)] = pickerSelectedIds;
-    saveMapping(map);
-    setPickerCollections(recountCollectionCounts());
+    if (pickerPlace && pickerSelectedIds.length > 0) {
+      // Save the place to selected collections
+      pickerSelectedIds.forEach(collectionId => {
+        savePlace(collectionId, pickerPlace);
+      });
+    }
     setPickerOpen(false);
+    setPickerPlace(null);
   }, [pickerPlace, pickerSelectedIds]);
 
   const handleCreateNewCollection = useCallback(() => setAddOpen(true), []);
@@ -274,6 +535,28 @@ const Home = () => {
     setPickerCollections(recountCollectionCounts());
     // Do NOT auto-add the current place to new collection; user must select and save explicitly.
     setAddOpen(false);
+  }, []);
+
+  // Heart/Like functionality
+  const handleHeartClick = useCallback((place, e) => {
+    e?.stopPropagation(); // Prevent navigation when clicking heart
+    
+    // Transform recommendation data to place format for favorites
+    const placeData = {
+      id: place.storeId || place.id,
+      name: place.storeName || place.name,
+      title: place.storeName || place.name,
+      category: place.category,
+      tags: place.tags || [],
+      desc: place.description || place.desc || '',
+      address: place.address ? { full: place.address } : {},
+      image: place.image || '/images/tmp.jpg'
+    };
+    
+    setPickerPlace(placeData);
+    setPickerCollections(recountCollectionCounts());
+    setPickerSelectedIds([]);
+    setPickerOpen(true);
   }, []);
 
   // status counts
@@ -398,15 +681,149 @@ const Home = () => {
         <div className="mt-5">
           <div className="text-[12px] font-semibold text-[#B5B5B5]">{(selectedPlace || '연남 작당모의 카페') + '의 카테고리들 중 마음에 드는 것을 골라봐요!'}</div>
           <div className="mt-3 overflow-x-auto pb-2">
-            <div className="inline-flex gap-2">
-              <FilterTags
-                tags={placeCategories && placeCategories.length ? placeCategories : ["달달한", "분위기가 좋은", "베이커리가 많은", "조용한", "음료가 맛있는"]}
-              />
-            </div>
+            {isLoadingHero ? (
+              <div className="h-8 flex items-center">
+                <div className="text-xs text-gray-400">카테고리를 불러오는 중...</div>
+              </div>
+            ) : (
+              <div className="inline-flex gap-2">
+                <FilterTags
+                  tags={placeCategories && placeCategories.length ? placeCategories : ["달달한", "분위기가 좋은", "베이커리가 많은", "조용한", "음료가 맛있는"]}
+                />
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Recommendations removed per design update */}
+        {/* AI Recommendations */}
+        {((enrichedRecommendations && enrichedRecommendations.length > 0) || isLoadingRecommendations) && (
+          <div className="mt-4">
+            <div className="text-sm font-semibold mb-3">AI 추천 가게</div>
+            
+            {isLoadingRecommendations ? (
+              <div className="min-h-[200px]">
+                <FallbackLoading message="추천 가게를 찾고 있어요..." />
+              </div>
+            ) : (
+              <div className="flex flex-col gap-[10px]">
+                {enrichedRecommendations.map((r, idx) => (
+                  <div key={idx} className="relative w-[334px] h-[96px]">
+                    {/* 상단 구분선 */}
+                    <div className="absolute top-0 left-0 w-[334px] h-[2px] bg-[#EAEAEA]" />
+                    
+                    {/* 메인 컨테이너 (86px 높이) */}
+                    <div 
+                      className="absolute top-[10px] left-0 w-[334px] h-[86px] cursor-pointer hover:bg-gray-50 transition-colors"
+                      onClick={() => {
+                        if (r.storeId) {
+                          navigate(`/place/${r.storeId}`);
+                        }
+                      }}
+                    >
+                      {/* Frame 39604 - 메인 콘텐츠 영역 */}
+                      <div className="absolute left-[3px] top-[13px] w-[329px] h-[73px] flex justify-between items-center gap-4">
+                        
+                        {/* 이미지 (Frame 25) */}
+                        <div className="flex-none">
+                          <div className="w-[114px] h-[73px] bg-gray-200 rounded-[5px] flex items-center justify-center">
+                            <span className="text-gray-400 text-xl">🏪</span>
+                          </div>
+                        </div>
+                        
+                        {/* Frame 39603 - 텍스트 및 정보 영역 */}
+                        <div className="flex-1 flex flex-col gap-[10px] py-[2px] h-[71px]">
+                          
+                          {/* Frame 39602 - 상단 (제목, 카테고리, 하트) */}
+                          <div className="flex justify-between items-center h-4">
+                            {/* Frame 39601 - 제목과 카테고리 */}
+                            <div className="flex items-center gap-[5px]">
+                              <h3 className="text-[13px] font-semibold text-black leading-4 font-pretendard">
+                                {r.storeName || r.name || r.storeId || '이름 없음'}
+                              </h3>
+                              <p className="text-[9px] font-semibold text-[#A2A2A2] leading-[11px] font-pretendard">
+                                {r.category || '카페'}
+                              </p>
+                            </div>
+                            
+                            {/* 하트 아이콘 */}
+                            <button
+                              onClick={(e) => handleHeartClick(r, e)}
+                              className="flex-none w-[14px] h-[14px] hover:bg-[#FFC5D2]/10 transition-colors flex items-center justify-center rounded-sm"
+                            >
+                              <Heart 
+                                size={14} 
+                                className="text-[#FFC5D2] hover:fill-[#FFC5D2]/20"
+                                fill="none"
+                                strokeWidth={2}
+                              />
+                            </button>
+                          </div>
+                          
+                          {/* Frame 39599 - 유사도 바와 텍스트 */}
+                          <div className="flex items-center gap-[6px] h-3">
+                            {/* Group 39608 - 유사도 바 */}
+                            <div className="relative w-[73px] h-[5px]">
+                              <div className="absolute top-[3.5px] w-[73px] h-[5px] bg-[#D9D9D9] rounded-[5px]" />
+                              <div 
+                                className="absolute top-[3.5px] h-[5px] bg-[#FFC5D2] rounded-[5px]"
+                                style={{ 
+                                  width: `${Math.min(
+                                    (r.scoreTotal || r.matchScore || 0.8) > 1 
+                                      ? (r.scoreTotal || r.matchScore || 0.8) * 73 / 100
+                                      : (r.scoreTotal || r.matchScore || 0.8) * 73, 
+                                    73
+                                  )}px` 
+                                }}
+                              />
+                            </div>
+                            
+                            {/* 유사도 텍스트 */}
+                            <span className="text-[10px] font-semibold text-[#858585] leading-3 font-pretendard">
+                              {Math.round(
+                                (r.scoreTotal || r.matchScore || 0.8) > 1 
+                                  ? (r.scoreTotal || r.matchScore || 0.8)
+                                  : (r.scoreTotal || r.matchScore || 0.8) * 100
+                              )}% 유사
+                            </span>
+                          </div>
+                          
+                          {/* Frame 39600 - 태그들 */}
+                          <div className="flex items-center gap-[6px] h-[19px] overflow-hidden">
+                            <HomeTags
+                              tags={r.tags || []}
+                              maxTags={3}
+                              gap="gap-[6px]"
+                              className="flex-wrap"
+                              tagBgClass="bg-[#212842]"
+                              tagTextClass="text-[#FFF9ED]"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {userRecStores && userRecStores.length > 0 && (
+          <div className="mt-4">
+            <div className="text-sm font-semibold mb-2">당신을 위한 추천 가게</div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {userRecStores.map((s, idx) => (
+                <div key={s.id || idx} className="bg-white border rounded-lg p-3 shadow-sm">
+                  <div className="text-base font-semibold truncate">{s.storeName || s.name || s.title || s.storeId || '이름 없음'}</div>
+                  <div className="text-xs text-gray-500">{s.category || ''}</div>
+                  { (s.description || s.desc || s.detail) && (
+                    <div className="mt-2 text-sm text-gray-700">{s.description || s.desc || s.detail}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* 백엔드 연결 에러 표시 */}
         {error && (
@@ -418,12 +835,13 @@ const Home = () => {
       {/* Favorites picker and add modal */}
       <FavoritesPickerSheet
         open={pickerOpen}
-        onClose={() => setPickerOpen(false)}
+        onClose={() => { setPickerOpen(false); setPickerPlace(null); }}
         collections={pickerCollections}
         selectedIds={pickerSelectedIds}
         onToggle={pickerToggle}
         onCreateNew={handleCreateNewCollection}
         onSave={pickerSave}
+        place={pickerPlace}
       />
 
       <AddCollectionModal
