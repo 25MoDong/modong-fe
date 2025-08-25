@@ -13,7 +13,7 @@ export const MAP_CONFIG = {
 // Category configuration
 export const CATEGORY_CONFIG = {
   restaurant: {
-    name: '맛집',
+    name: '식당',
     icon: '🍽️',
     color: '#FF6B6B',
     subcategories: {

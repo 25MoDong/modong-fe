@@ -9,15 +9,21 @@ import api from './api';
 
 const aiApi = {
   async recommend(userIdOrPayload, maybePayload) {
-    // Two supported call forms for backward-compatibility:
-    // - recommend(userId, payload) -> sends POST /api/ai/recommend?userId=... with body=payload
-    // - recommend(payload) -> legacy: sends POST /api/ai/recommend with body=payload
+    // New contract:
+    // - recommend(userId, targetString) -> POST /api/ai/recommend?userId=... with body { target: targetString }
+    // Backwards-compatible forms supported:
+    // - recommend(payload) -> POST /api/ai/recommend with body=payload
     let userId = null;
     let payload = null;
+
     if (maybePayload !== undefined) {
+      // called as recommend(userId, maybePayload)
       userId = userIdOrPayload;
-      payload = maybePayload || {};
+      if (typeof maybePayload === 'string') payload = { target: maybePayload };
+      else if (maybePayload && typeof maybePayload === 'object') payload = maybePayload;
+      else payload = {};
     } else {
+      // called as recommend(payload)
       payload = userIdOrPayload || {};
     }
 
