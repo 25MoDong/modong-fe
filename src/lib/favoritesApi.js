@@ -36,41 +36,54 @@ const getCurrentUserId = () => {
 export const loadCollections = async () => {
   try {
     const userId = getCurrentUserId();
-    // Prefer dedicated endpoint that returns this user's jt records
-    let myJt = [];
+
+    // If we have a userId, prefer the dedicated endpoint and cache results locally.
     if (userId) {
       try {
         const res = await findJtByUser(userId);
-        myJt = Array.isArray(res) ? res : (res?.items || []);
-      } catch (err) {
-        // fallback to fetching all and filtering
-        const allJt = await getAllJt();
-        myJt = Array.isArray(allJt)
-          ? allJt.filter(j => String(j.userId || j.user || j.creator || j.memberId || '') === String(userId))
-          : [];
-      }
-    } else {
-      myJt = [];
-    }
+        const items = Array.isArray(res) ? res : (res?.items || []);
 
-    const collections = [];
-    for (const jt of myJt) {
-      try {
-        const jtId = jt.jtId || jt.id || jt.jt || jt.idx || jt._id;
-        const jsInfo = jtId ? await getJsByJtId(jtId) : [];
-        collections.push({
-          id: jtId,
-          title: jt.title || jt.name || `컬렉션 ${jtId}`,
-          description: jt.description || '',
-          count: Array.isArray(jsInfo) ? jsInfo.length : 0,
-          raw: jt
+        // Map backend schema (e.g. { jjimTitleId, userId, jjimTitle }) to UI collection objects
+        const collections = items.map(it => {
+          const id = it.jjimTitleId ?? it.jtId ?? it.id ?? it.idx ?? it._id;
+          const title = it.jjimTitle ?? it.title ?? it.name ?? it.jtName ?? `컬렉션 ${id}`;
+          return {
+            id,
+            title,
+            description: it.description || '',
+            count: 0,
+            raw: it
+          };
         });
+
+        // Cache for other pages to read without extra roundtrips
+        cacheCollections(collections);
+        return collections;
       } catch (err) {
-        console.warn('Failed to load js info for jt', jt, err);
-        collections.push({ id: jt.jtId || jt.id, title: jt.title || jt.name || '컬렉션', description: jt.description || '', count: 0, raw: jt });
+        console.warn('findJtByUser failed, falling back to cache or allJt filter', err);
+        // fallback to local cache or global allJt filter below
       }
     }
 
+    // If no userId or API failure, fallback to returning cached collections.
+    const cached = getLocalCollections();
+    if (cached && cached.length > 0) return cached;
+
+    // As a last resort, fetch global list and filter (older API)
+    const allJt = await getAllJt();
+    const myJt = Array.isArray(allJt) ? allJt : (allJt?.items || []);
+    const collections = myJt.map(jt => {
+      const jtId = jt.jtId || jt.id || jt.jt || jt.idx || jt._id;
+      return {
+        id: jtId,
+        title: jt.title || jt.name || `컬렉션 ${jtId}`,
+        description: jt.description || '',
+        count: 0,
+        raw: jt
+      };
+    });
+
+    cacheCollections(collections);
     return collections;
   } catch (error) {
     console.error('Failed to load collections:', error);
@@ -82,6 +95,10 @@ export const loadCollections = async () => {
 // 로컬 저장소에서 캐시된 컬렉션 목록 조회 (백업용)
 const getLocalCollections = () => {
   try {
+    // Prefer the app's storage key used by favoritesStorage (backwards compatibility)
+    const primary = localStorage.getItem('fav_collections');
+    if (primary) return JSON.parse(primary);
+
     const raw = localStorage.getItem('MODONG_COLLECTIONS_CACHE');
     return raw ? JSON.parse(raw) : [];
   } catch {
@@ -93,6 +110,8 @@ const getLocalCollections = () => {
 const cacheCollections = (collections) => {
   try {
     localStorage.setItem('MODONG_COLLECTIONS_CACHE', JSON.stringify(collections));
+    // Also write to the legacy favoritesStorage key so other modules (PlaceDetail, etc.) see updates
+    try { localStorage.setItem('fav_collections', JSON.stringify(collections)); } catch (e) {}
   } catch (error) {
     console.error('Failed to cache collections:', error);
   }
@@ -111,13 +130,36 @@ export const addCollection = async (title, description = '') => {
     };
     
     const result = await createJt(jtData);
-    
-    return {
-      id: result.jtId || result.id,
-      title,
-      description,
-      count: 0
+    // Normalize title from possible server fields and return full collection object
+    const resolvedTitle = result?.title || result?.name || result?.jtName || result?.jtNm || title;
+    const resolvedId = result?.jtId || result?.id || result?.jt || result?.idx || result?._id;
+
+    const createdObj = {
+      id: resolvedId,
+      title: resolvedTitle,
+      description: description || result?.description || '',
+      count: 0,
+      raw: result
     };
+
+    // Refresh and cache the user's collection list so other pages see new collection
+    try {
+      const fresh = await findJtByUser(userId);
+      const items = Array.isArray(fresh) ? fresh : (fresh?.items || []);
+      const collections = items.map(it => ({
+        id: it.jjimTitleId ?? it.jtId ?? it.id ?? it.idx ?? it._id,
+        title: (it.jjimTitle ?? it.title ?? it.name ?? it.jtName) || `컬렉션 ${it.jjimTitleId}`,
+        description: it.description || '',
+        count: 0,
+        raw: it
+      }));
+      cacheCollections(collections);
+    } catch (err) {
+      // ignore cache refresh failures
+      console.warn('Failed to refresh collection cache after create', err);
+    }
+
+    return createdObj;
   } catch (error) {
     console.error('Failed to create collection:', error);
     throw error;
@@ -154,7 +196,27 @@ export const removePlaceFromCollection = async (placeId, collectionId) => {
 // 컬렉션 삭제
 export const deleteCollection = async (collectionId) => {
   try {
+    const userId = getCurrentUserId();
     await deleteJt(collectionId);
+
+    // Refresh cache after deletion
+    if (userId) {
+      try {
+        const fresh = await findJtByUser(userId);
+        const items = Array.isArray(fresh) ? fresh : (fresh?.items || []);
+        const collections = items.map(it => ({
+          id: it.jjimTitleId ?? it.jtId ?? it.id ?? it.idx ?? it._id,
+          title: (it.jjimTitle ?? it.title ?? it.name ?? it.jtName) || `컬렉션 ${it.jjimTitleId}`,
+          description: it.description || '',
+          count: 0,
+          raw: it
+        }));
+        cacheCollections(collections);
+      } catch (err) {
+        console.warn('Failed to refresh collection cache after delete', err);
+      }
+    }
+
     return true;
   } catch (error) {
     console.error('Failed to delete collection:', error);

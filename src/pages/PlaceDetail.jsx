@@ -13,9 +13,14 @@ import MenuSkeleton from '../components/place/MenuSkeleton.jsx';
 import FavoritesPickerSheet from '../components/favorites/FavoritesPickerSheet.jsx';
 import AddCollectionModal from '../components/favorites/AddCollectionModal.jsx'; // ✅ 모달 임포트
 import {
-  loadCollections, recountCollectionCounts,
-  loadMapping, togglePlaceInCollection, addCollection, loadPlace, savePlace
+  loadCollections as loadLocalCollections, recountCollectionCounts,
+  loadMapping, togglePlaceInCollection as toggleLocalPlace, addCollection as addLocalCollection, loadPlace, savePlace, saveMapping
 } from '../lib/favoritesStorage.js';
+import {
+  loadCollections as apiLoadCollections,
+  addPlaceToCollection,
+  removePlaceFromCollection
+} from '../lib/favoritesApi';
 
 const MOCK = {
   name: '카페 기웃기웃',
@@ -38,7 +43,7 @@ export default function PlaceDetail() {
 
   // 바텀시트 상태
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [collections, setCollections] = useState(() => loadCollections());
+  const [collections, setCollections] = useState([]);
   const [selected, setSelected] = useState([]);
 
   const [addOpen, setAddOpen] = useState(false);
@@ -54,6 +59,23 @@ export default function PlaceDetail() {
     const m = loadMapping();
     setSelected(m[placeId] || []);
   }, [placeId]);
+
+  // Load collections from API (or fallback to local cache)
+  useEffect(() => {
+    let mounted = true;
+    const init = async () => {
+      try {
+        const cols = await apiLoadCollections();
+        if (!mounted) return;
+        setCollections(cols);
+      } catch (err) {
+        console.warn('Failed to load collections from API, falling back to local', err);
+        setCollections(loadLocalCollections());
+      }
+    };
+    init();
+    return () => { mounted = false; };
+  }, []);
 
   // 어디서 넘어왔는지 판단: 명시된 from 값을 우선 사용
   const isFromHome = location.state?.from === 'home';
@@ -167,17 +189,42 @@ export default function PlaceDetail() {
     setSelected(prev => prev.includes(cid) ? prev.filter(v => v !== cid) : [...prev, cid]);
 
   const handleSaveFavorites = () => {
-    // 선택된 보석함들로 동기화(간단 토글 방식)
-    const before = new Set(loadMapping()[placeId] || []);
-    const after  = new Set(selected);
+    // 선택된 보석함들로 동기화: call API for add/remove and update local mapping cache
+    (async () => {
+      const before = new Set(loadMapping()[placeId] || []);
+      const after = new Set(selected);
 
-    // 제거
-    before.forEach(cid => { if (!after.has(cid)) togglePlaceInCollection(placeId, cid); });
-    // 추가
-    after.forEach(cid => { if (!before.has(cid)) togglePlaceInCollection(placeId, cid); });
+      // removals
+      for (const cid of before) {
+        if (!after.has(cid)) {
+          try {
+            await removePlaceFromCollection(placeId, cid);
+          } catch (err) {
+            console.warn('Failed to remove place from collection via API', err);
+            // still continue
+          }
+        }
+      }
 
-    setCollections(recountCollectionCounts()); // 카운트 재계산
-    setSheetOpen(false);
+      // additions
+      for (const cid of after) {
+        if (!before.has(cid)) {
+          try {
+            await addPlaceToCollection(placeId, cid);
+          } catch (err) {
+            console.warn('Failed to add place to collection via API', err);
+          }
+        }
+      }
+
+      // Update local mapping cache to reflect the current selection
+      const map = loadMapping();
+      map[placeId] = Array.from(after);
+      try { saveMapping(map); } catch (e) {}
+
+      setCollections(recountCollectionCounts()); // 카운트 재계산
+      setSheetOpen(false);
+    })();
   };
 
   // 바텀시트에서 "새 보석함" 클릭 → 모달 열기
@@ -186,9 +233,18 @@ export default function PlaceDetail() {
   // 모달에서 "추가하기" 제출 → 보석함 생성 + 현재 가게 자동담기 + 체크 반영
   const handleSubmitNewCollection = ({ title, description }) => {
     if (!title?.trim()) return;
-    addCollection({ title: title.trim(), description: description?.trim() });
-    // Do NOT automatically add the current place to the new collection; user must select and save explicitly.
-    setCollections(recountCollectionCounts());
+    // Try server-backed creation first, fallback to local
+    (async () => {
+      try {
+        const created = await (await import('../lib/favoritesApi')).addCollection(title.trim(), description?.trim());
+        // insert to UI
+        setCollections(prev => [{ id: created.id, title: created.title, description: created.description || '', count: 0, raw: created.raw }, ...prev]);
+      } catch (err) {
+        console.warn('API create failed, falling back to local', err);
+        addLocalCollection({ title: title.trim(), description: description?.trim() });
+      }
+      setCollections(recountCollectionCounts());
+    })();
     setAddOpen(false);
   };
 

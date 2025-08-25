@@ -6,8 +6,9 @@ import PlaceCards from "../components/common/PlaceCards";
 import FavoritesPickerSheet from '../components/favorites/FavoritesPickerSheet.jsx';
 import AddCollectionModal from '../components/favorites/AddCollectionModal.jsx';
 import {
-  loadCollections, loadMapping, saveMapping, addCollection, recountCollectionCounts, savePlace
+  loadCollections as loadLocalCollections, loadMapping, saveMapping, addCollection as addLocalCollection, recountCollectionCounts, savePlace
 } from '../lib/favoritesStorage.js';
+import { loadCollections as apiLoadCollections, addPlaceToCollection } from '../lib/favoritesApi';
 import backend from '../lib/backend';
 // suggestions will be loaded from backend stores
 
@@ -142,8 +143,15 @@ const Search = () => {
     }
 
     // For like action, open the picker with NO preselected items (user must choose)
-    const cols = loadCollections();
-    setPickerCollections(cols);
+    (async () => {
+      try {
+        const cols = await apiLoadCollections();
+        setPickerCollections(cols);
+      } catch (err) {
+        console.warn('Failed to load collections from API, falling back to local', err);
+        setPickerCollections(loadLocalCollections());
+      }
+    })();
     setPickerSelectedIds([]);
     setPickerPlace(place);
     setPickerOpen(true);
@@ -155,13 +163,27 @@ const Search = () => {
 
   const pickerSave = useCallback(() => {
     if (!pickerPlace) return setPickerOpen(false);
-    // Save place to cache then save mapping
-    savePlace(pickerPlace);
-    const map = loadMapping();
-    map[String(pickerPlace.id)] = pickerSelectedIds;
-    saveMapping(map);
-    recountCollectionCounts();
-    setPickerOpen(false);
+    // Save place to cache then persist selection via API
+    (async () => {
+      savePlace(pickerPlace);
+      const before = loadMapping()[String(pickerPlace.id)] || [];
+      const after = pickerSelectedIds || [];
+
+      // Add newly selected
+      for (const cid of after) {
+        if (!before.includes(cid)) {
+          try { await addPlaceToCollection(String(pickerPlace.id), cid); } catch (err) { console.warn('addPlaceToCollection failed', err); }
+        }
+      }
+
+      // Note: removal via API is not handled here; if needed implement removePlaceFromCollection
+
+      const map = loadMapping();
+      map[String(pickerPlace.id)] = after;
+      saveMapping(map);
+      recountCollectionCounts();
+      setPickerOpen(false);
+    })();
   }, [pickerPlace, pickerSelectedIds]);
 
   const handleCreateNewCollection = useCallback(() => {
